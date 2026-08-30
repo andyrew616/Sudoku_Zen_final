@@ -12,16 +12,13 @@ class SplashScreen : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
-        MobileAds.initialize(this) {
-            Handler(Looper.getMainLooper()).postDelayed({
-                // Start main activity
-                startActivity(Intent(this, MenuHostActivity::class.java))
-                // close splash activity
-
-                finish()
-
-            }, 2000)
+        ConsentManager.initialize(this) {
+            MobileAds.initialize(this) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    startActivity(Intent(this, MenuHostActivity::class.java))
+                    finish()
+                }, 2000)
+            }
         }
- // delay for 2 seconds
     }
 }

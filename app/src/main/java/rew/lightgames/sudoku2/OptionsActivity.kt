@@ -38,6 +38,16 @@ class OptionsActivity : AppCompatActivity() {
             sharedPreferences.edit().putBoolean("sound_effects", isChecked).apply()
         }
 
+        val privacyRow = findViewById<View>(R.id.privacyOptionsRow)
+        if (ConsentManager.isPrivacyOptionsRequired()) {
+            privacyRow.visibility = View.VISIBLE
+            privacyRow.setOnClickListener {
+                ConsentManager.showPrivacyOptionsForm(this)
+            }
+        } else {
+            privacyRow.visibility = View.GONE
+        }
+
     }
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()

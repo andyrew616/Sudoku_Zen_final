@@ -12,7 +12,9 @@ class MenuHostActivity : AppCompatActivity() {
         setContentView(R.layout.main_menu)
         val adRequest = AdRequest.Builder().build()
         val adView = findViewById<AdView>(R.id.adView)
-        adView.loadAd(adRequest)
+        if (ConsentManager.canRequestAds()) {
+            adView.loadAd(adRequest)
+        }
     }
 }
 

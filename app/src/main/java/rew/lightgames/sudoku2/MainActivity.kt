@@ -80,18 +80,20 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         val adView = findViewById<AdView>(R.id.adView)
 
         var adRequest = AdRequest.Builder().build()
-        adView.loadAd(adRequest)
-        InterstitialAd.load(this,"ca-app-pub-4002896469283656/4701071767", adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-                Log.d(TAG, adError.toString())
-                mInterstitialAdCompletion = null
-            }
+        if (ConsentManager.canRequestAds()) {
+            adView.loadAd(adRequest)
+            InterstitialAd.load(this,"ca-app-pub-4002896469283656/4701071767", adRequest, object : InterstitialAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Log.d(TAG, adError.toString())
+                    mInterstitialAdCompletion = null
+                }
 
-            override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                Log.d(TAG, "Ad was loaded.")
-                mInterstitialAdCompletion = interstitialAd
-            }
-        })
+                override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                    Log.d(TAG, "Ad was loaded.")
+                    mInterstitialAdCompletion = interstitialAd
+                }
+            })
+        }
         timer = Timer(this)
 
         if (intent.getBooleanExtra("Resume", false)) {
@@ -105,20 +107,19 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             }
         }
 
-        // Load the interstitial ad for exit
-        InterstitialAd.load(this,"ca-app-pub-4002896469283656/2976818750", adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-                Log.d(TAG, adError.toString())
-                mInterstitialAdOnExit = null
-            }
+        if (ConsentManager.canRequestAds()) {
+            InterstitialAd.load(this,"ca-app-pub-4002896469283656/2976818750", adRequest, object : InterstitialAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Log.d(TAG, adError.toString())
+                    mInterstitialAdOnExit = null
+                }
 
-
-
-            override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                Log.d(TAG, "Ad was loaded.")
-                mInterstitialAdOnExit = interstitialAd
-            }
-        })
+                override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                    Log.d(TAG, "Ad was loaded.")
+                    mInterstitialAdOnExit = interstitialAd
+                }
+            })
+        }
 
         timer.start()
 

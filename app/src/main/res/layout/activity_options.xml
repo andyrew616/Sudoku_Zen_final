@@ -99,5 +99,34 @@
 
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/privacyOptionsRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:adjustViewBounds="true"
+            android:cropToPadding="true"
+            android:maxWidth="48dp"
+            android:maxHeight="48dp"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/ic_privacy" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:paddingStart="10dp"
+            android:text="@string/privacy_settings"
+            android:textSize="20sp"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
 
 </LinearLayout>

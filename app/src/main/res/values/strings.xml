@@ -28,4 +28,5 @@
     <string name="start_Bttn">Start Game</string>
     <string name="resume">Resume previous saved game</string>
     <string name="exit_the_game">Exit the game</string>
+    <string name="privacy_settings">Privacy Settings</string>
 </resources>
