@@ -37,10 +37,15 @@ class Timer(private val listener: TimerListener) {
 
     fun pause() {
         isRunning = false
+        handler.removeCallbacks(runnable)
     }
 
     fun reset() {
         pause()
         seconds = 0
+    }
+
+    fun destroy() {
+        pause()
     }
 }

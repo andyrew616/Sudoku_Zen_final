@@ -12,6 +12,9 @@ import android.view.Window
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.ads.interstitial.InterstitialAd
@@ -63,8 +66,17 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.sudoku_board_view)
+
+        val root = findViewById<android.view.View>(R.id.bg)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
+
         onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
         val shouldResume = intent.getBooleanExtra("Resume", false)
         viewModel = ViewModelProvider(
@@ -365,6 +377,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
     override fun onDestroy() {
         super.onDestroy()
+        timer.destroy()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
     }
 

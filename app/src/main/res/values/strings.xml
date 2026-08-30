@@ -29,4 +29,6 @@
     <string name="resume">Resume previous saved game</string>
     <string name="exit_the_game">Exit the game</string>
     <string name="privacy_settings">Privacy Settings</string>
+    <string name="resume_game">Resume Game</string>
+    <string name="options">Options</string>
 </resources>
