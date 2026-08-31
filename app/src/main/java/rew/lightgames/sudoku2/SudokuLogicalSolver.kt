@@ -57,6 +57,7 @@ class SudokuLogicalSolver {
             ?: findHiddenSubset(grid, 3, SudokuTechnique.HIDDEN_TRIPLE)
             ?: findXWing(grid)
             ?: findXYWing(grid)
+            ?: findSkyscraper(grid)
 
     fun solve(board: IntArray): LogicalSolveResult {
         val creation = CandidateGrid.create(board)
@@ -378,6 +379,69 @@ class SudokuLogicalSolver {
         return null
     }
 
+    internal fun findSkyscraper(grid: CandidateGrid): LogicalStep? {
+        for (orientation in listOf(HouseType.ROW, HouseType.COLUMN)) {
+            for (digit in 1..9) {
+                for (firstHouseIndex in 0..7) {
+                    val firstHouse = HouseRef(orientation, firstHouseIndex)
+                    val firstPositions = grid.candidatePositions(firstHouse, digit)
+                    if (firstPositions.size != 2) continue
+                    val firstCovers = firstPositions.map { coverIndex(it, orientation) }
+
+                    for (secondHouseIndex in firstHouseIndex + 1..8) {
+                        val secondHouse = HouseRef(orientation, secondHouseIndex)
+                        val secondPositions = grid.candidatePositions(secondHouse, digit)
+                        if (secondPositions.size != 2) continue
+                        val secondCovers = secondPositions.map { coverIndex(it, orientation) }
+                        val alignedCovers = firstCovers.filter { it in secondCovers }.distinct()
+                        // Zero alignments is not a Skyscraper; two alignments is an X-Wing.
+                        if (alignedCovers.size != 1) continue
+
+                        val alignedCover = alignedCovers.single()
+                        val firstAligned = firstPositions.single {
+                            coverIndex(it, orientation) == alignedCover
+                        }
+                        val secondAligned = secondPositions.single {
+                            coverIndex(it, orientation) == alignedCover
+                        }
+                        val firstTower = firstPositions.single { it != firstAligned }
+                        val secondTower = secondPositions.single { it != secondAligned }
+                        if (coverIndex(firstTower, orientation) ==
+                            coverIndex(secondTower, orientation)
+                        ) continue
+
+                        val support = firstPositions + secondPositions
+                        val firstTowerPeers = grid.peersOf(firstTower)
+                        val secondTowerPeers = grid.peersOf(secondTower)
+                        val targets = grid.cellsRowMajor().filter { cell ->
+                            cell !in support &&
+                                grid.valueAt(cell) == 0 &&
+                                digit in grid.candidatesAt(cell) &&
+                                cell in firstTowerPeers &&
+                                cell in secondTowerPeers
+                        }
+                        if (targets.isEmpty()) continue
+
+                        return LogicalStep(
+                            SudokuTechnique.SKYSCRAPER,
+                            targets.map {
+                                SolveAction.EliminateCandidates(it, DigitSet.of(digit))
+                            },
+                            StepEvidence.Skyscraper(
+                                digit = digit,
+                                orientation = orientation,
+                                sourceHouses = listOf(firstHouse, secondHouse),
+                                alignedCells = listOf(firstAligned, secondAligned),
+                                towers = listOf(firstTower, secondTower)
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return null
+    }
+
     private fun singleStep(
         technique: SudokuTechnique,
         cell: CellRef,
@@ -450,6 +514,9 @@ class SudokuLogicalSolver {
 
     private fun boxFor(cell: CellRef): HouseRef =
         HouseRef(HouseType.BOX, (cell.row / 3) * 3 + cell.column / 3)
+
+    private fun coverIndex(cell: CellRef, orientation: HouseType): Int =
+        if (orientation == HouseType.ROW) cell.column else cell.row
 
     internal fun progress(grid: CandidateGrid): Int = grid.cellsRowMajor().sumOf { cell ->
         if (grid.valueAt(cell) == 0) 1 + grid.candidatesAt(cell).size else 0

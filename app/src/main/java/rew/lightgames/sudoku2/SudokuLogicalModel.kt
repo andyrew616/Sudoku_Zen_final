@@ -117,7 +117,8 @@ enum class SudokuTechnique {
     NAKED_TRIPLE,
     HIDDEN_TRIPLE,
     X_WING,
-    XY_WING
+    XY_WING,
+    SKYSCRAPER
 }
 
 sealed interface SolveAction {
@@ -316,6 +317,71 @@ sealed interface StepEvidence {
             "XYWing(pivot=$pivot, pincers=$pincers, pivotDigits=$pivotDigits, " +
                 "eliminationDigit=$eliminationDigit)"
     }
+
+    class Skyscraper(
+        val digit: Int,
+        val orientation: HouseType,
+        sourceHouses: Collection<HouseRef>,
+        alignedCells: Collection<CellRef>,
+        towers: Collection<CellRef>
+    ) : StepEvidence {
+        val sourceHouses: List<HouseRef> = immutableSortedDistinct(sourceHouses)
+        val alignedCells: List<CellRef> = immutableSortedDistinct(alignedCells)
+        val towers: List<CellRef> = immutableSortedDistinct(towers)
+
+        init {
+            DigitSet.requireDigit(digit)
+            require(orientation == HouseType.ROW || orientation == HouseType.COLUMN) {
+                "Skyscraper orientation must be ROW or COLUMN"
+            }
+            require(this.sourceHouses.size == 2) {
+                "Skyscraper evidence requires two source houses"
+            }
+            require(this.sourceHouses.all { it.type == orientation }) {
+                "Skyscraper source houses must match its orientation"
+            }
+            require(this.alignedCells.size == 2) {
+                "Skyscraper evidence requires two aligned cells"
+            }
+            require(this.towers.size == 2) { "Skyscraper evidence requires two towers" }
+            require((this.alignedCells + this.towers).distinct().size == 4) {
+                "Skyscraper support cells must be distinct"
+            }
+            require(this.alignedCells.map { it.coverIndexFor(orientation) }.distinct().size == 1) {
+                "Skyscraper aligned cells must share one cover house"
+            }
+            require(this.towers.map { it.coverIndexFor(orientation) }.distinct().size == 2) {
+                "Skyscraper towers must occupy different cover houses"
+            }
+            require(this.sourceHouses.all { house ->
+                this.alignedCells.count { it.belongsTo(house) } == 1 &&
+                    this.towers.count { it.belongsTo(house) } == 1
+            }) {
+                "Each Skyscraper source house must contain one aligned cell and one tower"
+            }
+        }
+
+        override fun equals(other: Any?): Boolean =
+            other is Skyscraper &&
+                digit == other.digit &&
+                orientation == other.orientation &&
+                sourceHouses == other.sourceHouses &&
+                alignedCells == other.alignedCells &&
+                towers == other.towers
+
+        override fun hashCode(): Int {
+            var result = digit
+            result = 31 * result + orientation.hashCode()
+            result = 31 * result + sourceHouses.hashCode()
+            result = 31 * result + alignedCells.hashCode()
+            result = 31 * result + towers.hashCode()
+            return result
+        }
+
+        override fun toString(): String =
+            "Skyscraper(digit=$digit, orientation=$orientation, " +
+                "sourceHouses=$sourceHouses, alignedCells=$alignedCells, towers=$towers)"
+    }
 }
 
 class LogicalStep(
@@ -395,4 +461,10 @@ private fun CellRef.belongsTo(house: HouseRef): Boolean = when (house.type) {
     HouseType.ROW -> row == house.index
     HouseType.COLUMN -> column == house.index
     HouseType.BOX -> (row / 3) * 3 + column / 3 == house.index
+}
+
+private fun CellRef.coverIndexFor(orientation: HouseType): Int = when (orientation) {
+    HouseType.ROW -> column
+    HouseType.COLUMN -> row
+    HouseType.BOX -> error("A box cannot be a Skyscraper orientation")
 }

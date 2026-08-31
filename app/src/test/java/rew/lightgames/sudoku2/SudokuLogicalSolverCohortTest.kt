@@ -12,7 +12,8 @@ class SudokuLogicalSolverCohortTest {
     private val solver = SudokuLogicalSolver()
 
     @Test
-    fun generatedCohort_2000Seeds_preservesOracleDeterminismAndMeasuresHardCoverage() {
+    fun generatedCohort_5000Seeds_preservesOracleDeterminismAndMeasuresCoverage() {
+        val cohortSize = 5_000
         val techniqueCounts = linkedMapOf<SudokuTechnique, Int>()
         val baselineTechniqueCounts = linkedMapOf<SudokuTechnique, Int>()
         val solveTimesNanos = ArrayList<Long>()
@@ -28,6 +29,8 @@ class SudokuLogicalSolverCohortTest {
         var baselineInvalid = 0
         var baselineXWingPuzzles = 0
         var baselineXYWingPuzzles = 0
+        var baselineSkyscraperPuzzles = 0
+        var baselineSkyscraperSteps = 0
         var baselineHardPuzzles = 0
         var xWingPuzzles = 0
         var xyWingPuzzles = 0
@@ -35,9 +38,13 @@ class SudokuLogicalSolverCohortTest {
         var hardStepsInHardPuzzles = 0
         var solvedWithHardTechnique = 0
         var hardStepsInSolvedWithHardPuzzles = 0
+        var skyscraperPuzzles = 0
+        var skyscraperSteps = 0
+        var solvedWithSkyscraper = 0
+        var skyscraperStepsInSolvedPuzzles = 0
         val stalledDiagnostics = ArrayList<StalledDiagnostic>()
 
-        for (seed in 1L..2_000L) {
+        for (seed in 1L..cohortSize.toLong()) {
             val generated = SudokuPuzzleEngine(seed).generate()
             val oracle = SudokuPuzzleEngine().solve(generated.puzzle)
             assertNotNull("Seed $seed must have an oracle solution", oracle)
@@ -68,8 +75,25 @@ class SudokuLogicalSolverCohortTest {
             val techniquesUsed = result.steps.map { it.technique }.toSet()
             if (SudokuTechnique.X_WING in techniquesUsed) xWingPuzzles++
             if (SudokuTechnique.XY_WING in techniquesUsed) xyWingPuzzles++
+            val puzzleSkyscraperSteps = result.steps.count {
+                it.technique == SudokuTechnique.SKYSCRAPER
+            }
+            if (puzzleSkyscraperSteps > 0) {
+                skyscraperPuzzles++
+                skyscraperSteps += puzzleSkyscraperSteps
+                if (result.status == LogicalSolveStatus.SOLVED) {
+                    solvedWithSkyscraper++
+                    skyscraperStepsInSolvedPuzzles += puzzleSkyscraperSteps
+                }
+            }
             val hardSteps = result.steps.count {
-                it.technique == SudokuTechnique.X_WING || it.technique == SudokuTechnique.XY_WING
+                it.technique in setOf(
+                    SudokuTechnique.NAKED_TRIPLE,
+                    SudokuTechnique.HIDDEN_TRIPLE,
+                    SudokuTechnique.X_WING,
+                    SudokuTechnique.XY_WING,
+                    SudokuTechnique.SKYSCRAPER
+                )
             }
             if (hardSteps > 0) {
                 hardTechniquePuzzles++
@@ -82,6 +106,8 @@ class SudokuLogicalSolverCohortTest {
             if (seed <= 500L) {
                 if (SudokuTechnique.X_WING in techniquesUsed) baselineXWingPuzzles++
                 if (SudokuTechnique.XY_WING in techniquesUsed) baselineXYWingPuzzles++
+                if (SudokuTechnique.SKYSCRAPER in techniquesUsed) baselineSkyscraperPuzzles++
+                baselineSkyscraperSteps += puzzleSkyscraperSteps
                 if (hardSteps > 0) baselineHardPuzzles++
                 when (result.status) {
                     LogicalSolveStatus.SOLVED -> baselineSolved++
@@ -113,7 +139,7 @@ class SudokuLogicalSolverCohortTest {
             }
             assertArrayEquals(result.finalBoard, grid.snapshot().values)
             assertEquals(result.remainingCandidates, grid.snapshot())
-            if (result.status == LogicalSolveStatus.STALLED && stalledDiagnostics.size < 100) {
+            if (result.status == LogicalSolveStatus.STALLED && stalledDiagnostics.size < 200) {
                 stalledDiagnostics.add(classifyStall(seed, grid))
             }
         }
@@ -121,60 +147,77 @@ class SudokuLogicalSolverCohortTest {
         val sortedMillis = solveTimesNanos.map { it / 1_000_000.0 }.sorted()
         val averageMillis = sortedMillis.average()
         val medianMillis = sortedMillis[sortedMillis.size / 2]
-        val p95Millis = sortedMillis[(sortedMillis.size * 0.95).toInt().coerceAtMost(1_999)]
+        val p95Millis = sortedMillis[
+            (sortedMillis.size * 0.95).toInt().coerceAtMost(cohortSize - 1)
+        ]
         val slowestMillis = sortedMillis.last()
-        val averageSteps = totalSteps / 2_000.0
+        val averageSteps = totalSteps / cohortSize.toDouble()
         val frequency = SudokuTechnique.entries.joinToString { technique ->
             "$technique=${techniqueCounts.getOrDefault(technique, 0)}"
         }
         val baselineFrequency = SudokuTechnique.entries.joinToString { technique ->
             "$technique=${baselineTechniqueCounts.getOrDefault(technique, 0)}"
         }
-        val additionalBaselineSolved = baselineSolved - 268
+        val additionalBaselineSolved = baselineSolved - 295
         val averageHardSteps = if (hardTechniquePuzzles == 0) 0.0
         else hardStepsInHardPuzzles / hardTechniquePuzzles.toDouble()
         val averageHardStepsSolved = if (solvedWithHardTechnique == 0) 0.0
         else hardStepsInSolvedWithHardPuzzles / solvedWithHardTechnique.toDouble()
+        val averageSkyscraperStepsSolved = if (solvedWithSkyscraper == 0) 0.0
+        else skyscraperStepsInSolvedPuzzles / solvedWithSkyscraper.toDouble()
         val classifications = stalledDiagnostics.groupingBy { it.classification }.eachCount()
+        val swordfishIncidence = stalledDiagnostics.count { it.swordfishSignature }
+        val twoStringKiteIncidence = stalledDiagnostics.count { it.twoStringKiteSignature }
+        val xyzWingIncidence = stalledDiagnostics.count { it.xyzWingSignature }
 
         println(
-            "PR4 BASELINE 500: solved=$baselineSolved stalled=$baselineStalled " +
-                "invalid=$baselineInvalid additionalSolvedVsPR3=$additionalBaselineSolved"
+            "PR5 BASELINE 500: solved=$baselineSolved stalled=$baselineStalled " +
+                "invalid=$baselineInvalid additionalSolvedVsPR4=$additionalBaselineSolved"
         )
-        println("PR4 BASELINE TECHNIQUE FREQUENCY: $baselineFrequency")
+        println("PR5 BASELINE TECHNIQUE FREQUENCY: $baselineFrequency")
         println(
-            "PR4 BASELINE HARD FREQUENCY: xWingPuzzles=$baselineXWingPuzzles " +
-                "xyWingPuzzles=$baselineXYWingPuzzles hardTechniquePuzzles=$baselineHardPuzzles"
+            "PR5 BASELINE HARD FREQUENCY: xWingPuzzles=$baselineXWingPuzzles " +
+                "xyWingPuzzles=$baselineXYWingPuzzles skyscraperPuzzles=$baselineSkyscraperPuzzles " +
+                "skyscraperSteps=$baselineSkyscraperSteps hardTechniquePuzzles=$baselineHardPuzzles"
         )
         println(
-            "PR4 COHORT REPORT: solved=$solved stalled=$stalled invalid=$invalid " +
+            "PR5 COHORT REPORT: solved=$solved stalled=$stalled invalid=$invalid " +
                 "totalSteps=$totalSteps incorrectPlacements=$incorrectPlacements " +
                 "incorrectEliminations=$incorrectEliminations nondeterministic=$nondeterministicTraces"
         )
-        println("PR4 TECHNIQUE FREQUENCY: $frequency")
+        println("PR5 TECHNIQUE FREQUENCY: $frequency")
         println(
-            "PR4 HARD COVERAGE: xWingPuzzles=$xWingPuzzles xyWingPuzzles=$xyWingPuzzles " +
+            "PR5 HARD COVERAGE: xWingPuzzles=$xWingPuzzles xyWingPuzzles=$xyWingPuzzles " +
                 "hardTechniquePuzzles=$hardTechniquePuzzles solvedWithHard=$solvedWithHardTechnique " +
                 "averageHardStepsUsing=${"%.3f".format(averageHardSteps)} " +
                 "averageHardStepsSolved=${"%.3f".format(averageHardStepsSolved)}"
         )
         println(
-            "PR4 PERFORMANCE: averageMs=${"%.3f".format(averageMillis)} " +
+            "PR5 SKYSCRAPER COVERAGE: puzzles=$skyscraperPuzzles steps=$skyscraperSteps " +
+                "solvedWithSkyscraper=$solvedWithSkyscraper " +
+                "averageStepsSolved=${"%.3f".format(averageSkyscraperStepsSolved)}"
+        )
+        println(
+            "PR5 PERFORMANCE: averageMs=${"%.3f".format(averageMillis)} " +
                 "medianMs=${"%.3f".format(medianMillis)} p95Ms=${"%.3f".format(p95Millis)} " +
                 "slowestMs=${"%.3f".format(slowestMillis)} averageSteps=${"%.2f".format(averageSteps)}"
         )
-        println("PR4 STALLED SAMPLE: size=${stalledDiagnostics.size} classifications=$classifications")
-        stalledDiagnostics.forEach { println("PR4 STALL: $it") }
+        println("PR5 STALLED SAMPLE: size=${stalledDiagnostics.size} classifications=$classifications")
+        println(
+            "PR5 STALLED SIGNATURE INCIDENCE: swordfish=$swordfishIncidence " +
+                "twoStringKite=$twoStringKiteIncidence xyzWing=$xyzWingIncidence"
+        )
+        stalledDiagnostics.forEach { println("PR5 STALL: $it") }
 
-        assertEquals(2_000, solved + stalled)
+        assertEquals(cohortSize, solved + stalled)
         assertEquals(0, invalid)
         assertEquals(0, incorrectPlacements)
         assertEquals(0, incorrectEliminations)
         assertEquals(0, nondeterministicTraces)
         assertEquals(500, baselineSolved + baselineStalled)
         assertEquals(0, baselineInvalid)
-        assertTrue("PR4 techniques must not regress PR3 solved coverage", baselineSolved >= 268)
-        assertEquals(100, stalledDiagnostics.size)
+        assertTrue("PR5 must not regress PR4 solved coverage", baselineSolved >= 295)
+        assertEquals(200, stalledDiagnostics.size)
         assertTrue("Median exceeded 5 ms budget", medianMillis <= 5.0)
         assertTrue("P95 exceeded 20 ms budget", p95Millis <= 20.0)
     }
@@ -197,6 +240,7 @@ class SudokuLogicalSolverCohortTest {
             is StepEvidence.Subset -> validateSubset(grid, step, evidence)
             is StepEvidence.Fish -> validateFish(grid, step, evidence)
             is StepEvidence.XYWing -> validateXYWing(grid, step, evidence)
+            is StepEvidence.Skyscraper -> validateSkyscraper(grid, step, evidence)
         }
     }
 
@@ -351,15 +395,55 @@ class SudokuLogicalSolverCohortTest {
         assertEquals(expectedActions, step.actions)
     }
 
+    private fun validateSkyscraper(
+        grid: CandidateGrid,
+        step: LogicalStep,
+        evidence: StepEvidence.Skyscraper
+    ) {
+        assertEquals(SudokuTechnique.SKYSCRAPER, step.technique)
+        assertEquals(2, evidence.sourceHouses.size)
+        assertEquals(2, evidence.alignedCells.size)
+        assertEquals(2, evidence.towers.size)
+        evidence.sourceHouses.forEach { house ->
+            assertEquals(evidence.orientation, house.type)
+            val support = (evidence.alignedCells + evidence.towers).filter {
+                it in grid.cellsIn(house)
+            }.sorted()
+            assertEquals(support, grid.candidatePositions(house, evidence.digit))
+            assertEquals(2, support.size)
+        }
+        val alignedCovers = evidence.alignedCells.map {
+            if (evidence.orientation == HouseType.ROW) it.column else it.row
+        }
+        assertEquals(alignedCovers[0], alignedCovers[1])
+        val towerCovers = evidence.towers.map {
+            if (evidence.orientation == HouseType.ROW) it.column else it.row
+        }
+        assertNotEquals(towerCovers[0], towerCovers[1])
+        val firstPeers = grid.peersOf(evidence.towers[0])
+        val secondPeers = grid.peersOf(evidence.towers[1])
+        val support = evidence.alignedCells + evidence.towers
+        val expectedActions = grid.cellsRowMajor()
+            .filter { cell ->
+                cell !in support &&
+                    grid.valueAt(cell) == 0 &&
+                    evidence.digit in grid.candidatesAt(cell) &&
+                    cell in firstPeers &&
+                    cell in secondPeers
+            }
+            .map { SolveAction.EliminateCandidates(it, DigitSet.of(evidence.digit)) }
+        assertEquals(expectedActions, step.actions)
+    }
+
     private fun classifyStall(seed: Long, grid: CandidateGrid): StalledDiagnostic {
         val emptyCells = grid.cellsRowMajor().filter { grid.valueAt(it) == 0 }
         val swordfish = hasSwordfishSignature(grid)
-        val skyscraper = hasSkyscraperSignature(grid)
-        val wingBeyondXY = hasXYZWingSignature(grid)
+        val twoStringKite = hasTwoStringKiteSignature(grid)
+        val xyzWing = hasXYZWingSignature(grid)
         val classification = when {
             swordfish -> "likely Swordfish"
-            skyscraper -> "likely Skyscraper"
-            wingBeyondXY -> "likely wing beyond XY"
+            twoStringKite -> "likely Two-String Kite"
+            xyzWing -> "likely XYZ-Wing"
             else -> "unclear/advanced"
         }
         val strongLinks = HouseType.entries.sumOf { type ->
@@ -376,8 +460,8 @@ class SudokuLogicalSolverCohortTest {
             bivalueCells = emptyCells.count { grid.candidatesAt(it).size == 2 },
             strongLinks = strongLinks,
             swordfishSignature = swordfish,
-            skyscraperSignature = skyscraper,
-            wingBeyondXYSignature = wingBeyondXY,
+            twoStringKiteSignature = twoStringKite,
+            xyzWingSignature = xyzWing,
             classification = classification
         )
     }
@@ -415,40 +499,36 @@ class SudokuLogicalSolverCohortTest {
         return false
     }
 
-    /** Diagnostic signature only; checks paired strong links and a common-peer elimination. */
-    private fun hasSkyscraperSignature(grid: CandidateGrid): Boolean {
-        for (baseType in listOf(HouseType.ROW, HouseType.COLUMN)) {
-            for (digit in 1..9) {
-                val links = (0..8).mapNotNull { index ->
-                    val positions = grid.candidatePositions(HouseRef(baseType, index), digit)
-                    if (positions.size == 2) positions else null
-                }
-                for (first in 0 until links.lastIndex) {
-                    for (second in first + 1 until links.size) {
-                        val firstCovers = links[first].map { cell ->
-                            if (baseType == HouseType.ROW) cell.column else cell.row
-                        }
-                        val secondCovers = links[second].map { cell ->
-                            if (baseType == HouseType.ROW) cell.column else cell.row
-                        }
-                        if (firstCovers.intersect(secondCovers.toSet()).size != 1) continue
-                        val firstRoof = links[first].single { cell ->
-                            val cover = if (baseType == HouseType.ROW) cell.column else cell.row
-                            cover !in secondCovers
-                        }
-                        val secondRoof = links[second].single { cell ->
-                            val cover = if (baseType == HouseType.ROW) cell.column else cell.row
-                            cover !in firstCovers
-                        }
-                        if (grid.cellsRowMajor().any { target ->
-                                target != firstRoof &&
-                                    target != secondRoof &&
-                                    grid.valueAt(target) == 0 &&
-                                    digit in grid.candidatesAt(target) &&
-                                    target in grid.peersOf(firstRoof) &&
-                                    target in grid.peersOf(secondRoof)
+    /** Diagnostic signature only; it does not construct or apply a logical step. */
+    private fun hasTwoStringKiteSignature(grid: CandidateGrid): Boolean {
+        for (digit in 1..9) {
+            for (rowIndex in 0..8) {
+                val rowPositions = grid.candidatePositions(HouseRef(HouseType.ROW, rowIndex), digit)
+                if (rowPositions.size != 2) continue
+                for (columnIndex in 0..8) {
+                    val columnPositions = grid.candidatePositions(
+                        HouseRef(HouseType.COLUMN, columnIndex),
+                        digit
+                    )
+                    if (columnPositions.size != 2) continue
+                    for (rowBase in rowPositions) {
+                        for (columnBase in columnPositions) {
+                            if (rowBase == columnBase || boxIndex(rowBase) != boxIndex(columnBase)) {
+                                continue
                             }
-                        ) return true
+                            val rowEnd = rowPositions.single { it != rowBase }
+                            val columnEnd = columnPositions.single { it != columnBase }
+                            val support = rowPositions + columnPositions
+                            if (support.distinct().size != 4) continue
+                            if (grid.cellsRowMajor().any { target ->
+                                    target !in support &&
+                                        grid.valueAt(target) == 0 &&
+                                        digit in grid.candidatesAt(target) &&
+                                        target in grid.peersOf(rowEnd) &&
+                                        target in grid.peersOf(columnEnd)
+                                }
+                            ) return true
+                        }
                     }
                 }
             }
@@ -496,8 +576,10 @@ class SudokuLogicalSolverCohortTest {
         val bivalueCells: Int,
         val strongLinks: Int,
         val swordfishSignature: Boolean,
-        val skyscraperSignature: Boolean,
-        val wingBeyondXYSignature: Boolean,
+        val twoStringKiteSignature: Boolean,
+        val xyzWingSignature: Boolean,
         val classification: String
     )
+
+    private fun boxIndex(cell: CellRef): Int = (cell.row / 3) * 3 + cell.column / 3
 }
