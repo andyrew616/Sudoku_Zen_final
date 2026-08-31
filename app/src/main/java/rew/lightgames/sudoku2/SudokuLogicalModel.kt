@@ -1,0 +1,262 @@
+package rew.lightgames.sudoku2
+
+import java.util.Collections
+
+/** A zero-based location in a 9x9 Sudoku grid. */
+data class CellRef(val row: Int, val column: Int) : Comparable<CellRef> {
+    init {
+        require(row in 0..8) { "Row must be in 0..8, got $row" }
+        require(column in 0..8) { "Column must be in 0..8, got $column" }
+    }
+
+    val index: Int = row * 9 + column
+
+    override fun compareTo(other: CellRef): Int = index.compareTo(other.index)
+
+    companion object {
+        fun fromIndex(index: Int): CellRef {
+            require(index in 0..80) { "Cell index must be in 0..80, got $index" }
+            return CellRef(index / 9, index % 9)
+        }
+    }
+}
+
+enum class HouseType {
+    ROW,
+    COLUMN,
+    BOX
+}
+
+/** A zero-based row, column, or box reference. Boxes are ordered row-major. */
+data class HouseRef(val type: HouseType, val index: Int) : Comparable<HouseRef> {
+    init {
+        require(index in 0..8) { "House index must be in 0..8, got $index" }
+    }
+
+    override fun compareTo(other: HouseRef): Int {
+        val typeComparison = type.ordinal.compareTo(other.type.ordinal)
+        return if (typeComparison != 0) typeComparison else index.compareTo(other.index)
+    }
+}
+
+/** Immutable set of Sudoku digits backed by the low nine bits of an Int. */
+class DigitSet private constructor(internal val mask: Int) {
+    val size: Int
+        get() = Integer.bitCount(mask)
+
+    val count: Int
+        get() = size
+
+    val isEmpty: Boolean
+        get() = mask == 0
+
+    operator fun contains(digit: Int): Boolean {
+        requireDigit(digit)
+        return mask and bitFor(digit) != 0
+    }
+
+    fun digitsAscending(): List<Int> = (1..9).filter { mask and bitFor(it) != 0 }
+
+    fun add(digit: Int): DigitSet {
+        requireDigit(digit)
+        return fromMask(mask or bitFor(digit))
+    }
+
+    fun remove(digit: Int): DigitSet {
+        requireDigit(digit)
+        return fromMask(mask and bitFor(digit).inv())
+    }
+
+    fun remove(digits: DigitSet): DigitSet = fromMask(mask and digits.mask.inv())
+
+    override fun equals(other: Any?): Boolean = other is DigitSet && mask == other.mask
+
+    override fun hashCode(): Int = mask
+
+    override fun toString(): String = digitsAscending().joinToString(prefix = "{", postfix = "}")
+
+    companion object {
+        private const val ALL_MASK = (1 shl 9) - 1
+
+        val EMPTY: DigitSet = DigitSet(0)
+        val ALL_DIGITS: DigitSet = DigitSet(ALL_MASK)
+
+        fun of(vararg digits: Int): DigitSet {
+            var mask = 0
+            for (digit in digits) {
+                requireDigit(digit)
+                mask = mask or bitFor(digit)
+            }
+            return fromMask(mask)
+        }
+
+        internal fun fromMask(mask: Int): DigitSet {
+            require(mask and ALL_MASK.inv() == 0) { "Candidate mask contains bits outside digits 1..9" }
+            return when (mask) {
+                0 -> EMPTY
+                ALL_MASK -> ALL_DIGITS
+                else -> DigitSet(mask)
+            }
+        }
+
+        internal fun bitFor(digit: Int): Int = 1 shl (digit - 1)
+
+        internal fun requireDigit(digit: Int) {
+            require(digit in 1..9) { "Digit must be in 1..9, got $digit" }
+        }
+    }
+}
+
+enum class SudokuTechnique {
+    NAKED_SINGLE,
+    HIDDEN_SINGLE,
+    LOCKED_CANDIDATES_POINTING,
+    LOCKED_CANDIDATES_CLAIMING,
+    NAKED_PAIR,
+    HIDDEN_PAIR,
+    NAKED_TRIPLE,
+    HIDDEN_TRIPLE,
+    X_WING,
+    XY_WING
+}
+
+sealed interface SolveAction {
+    val cell: CellRef
+
+    data class PlaceValue(override val cell: CellRef, val digit: Int) : SolveAction {
+        init {
+            DigitSet.requireDigit(digit)
+        }
+    }
+
+    data class EliminateCandidates(override val cell: CellRef, val digits: DigitSet) : SolveAction {
+        init {
+            require(!digits.isEmpty) { "An elimination must contain at least one digit" }
+        }
+    }
+}
+
+/** Structured, presentation-neutral facts supporting a future logical step. */
+sealed interface StepEvidence {
+    data class Single(
+        val cell: CellRef,
+        val digit: Int,
+        val house: HouseRef? = null
+    ) : StepEvidence {
+        init {
+            DigitSet.requireDigit(digit)
+        }
+    }
+
+    class LockedCandidates(
+        val digit: Int,
+        val sourceHouse: HouseRef,
+        val targetHouse: HouseRef,
+        sourceCells: Collection<CellRef>
+    ) : StepEvidence {
+        val sourceCells: List<CellRef> = immutableSortedDistinct(sourceCells)
+
+        init {
+            DigitSet.requireDigit(digit)
+            require(this.sourceCells.isNotEmpty()) { "Locked candidates require source cells" }
+            require(sourceHouse != targetHouse) { "Source and target houses must differ" }
+        }
+    }
+
+    class Subset(
+        val house: HouseRef,
+        val digits: DigitSet,
+        cells: Collection<CellRef>
+    ) : StepEvidence {
+        val cells: List<CellRef> = immutableSortedDistinct(cells)
+
+        init {
+            require(!digits.isEmpty) { "Subset digits must not be empty" }
+            require(this.cells.isNotEmpty()) { "Subset cells must not be empty" }
+        }
+    }
+
+    class Fish(
+        val digit: Int,
+        baseHouses: Collection<HouseRef>,
+        coverHouses: Collection<HouseRef>,
+        cells: Collection<CellRef>
+    ) : StepEvidence {
+        val baseHouses: List<HouseRef> = immutableSortedDistinct(baseHouses)
+        val coverHouses: List<HouseRef> = immutableSortedDistinct(coverHouses)
+        val cells: List<CellRef> = immutableSortedDistinct(cells)
+
+        init {
+            DigitSet.requireDigit(digit)
+            require(this.baseHouses.isNotEmpty()) { "Fish evidence requires base houses" }
+            require(this.coverHouses.isNotEmpty()) { "Fish evidence requires cover houses" }
+            require(this.cells.isNotEmpty()) { "Fish evidence requires cells" }
+        }
+    }
+
+    class XYWing(
+        val pivot: CellRef,
+        val firstPincer: CellRef,
+        val secondPincer: CellRef,
+        val digits: DigitSet
+    ) : StepEvidence {
+        init {
+            require(setOf(pivot, firstPincer, secondPincer).size == 3) {
+                "XY-Wing pivot and pincers must be distinct"
+            }
+            require(digits.size == 3) { "XY-Wing evidence must contain exactly three digits" }
+        }
+    }
+}
+
+class LogicalStep(
+    val technique: SudokuTechnique,
+    actions: Collection<SolveAction>,
+    val evidence: StepEvidence
+) {
+    val actions: List<SolveAction>
+
+    init {
+        require(actions.isNotEmpty()) { "A logical step must contain at least one action" }
+        require(actions.distinct().size == actions.size) { "A logical step must not contain duplicate actions" }
+
+        val actionsByCell = actions.groupBy { it.cell }
+        require(actionsByCell.values.all { it.size == 1 }) {
+            "A logical step must contain at most one action per cell"
+        }
+
+        this.actions = immutableList(actions.sortedWith(ACTION_COMPARATOR))
+    }
+
+    private companion object {
+        val ACTION_COMPARATOR = Comparator<SolveAction> { left, right ->
+            val cellComparison = left.cell.compareTo(right.cell)
+            if (cellComparison != 0) {
+                cellComparison
+            } else {
+                val leftType = if (left is SolveAction.PlaceValue) 0 else 1
+                val rightType = if (right is SolveAction.PlaceValue) 0 else 1
+                val typeComparison = leftType.compareTo(rightType)
+                if (typeComparison != 0) {
+                    typeComparison
+                } else {
+                    val leftValue = when (left) {
+                        is SolveAction.PlaceValue -> left.digit
+                        is SolveAction.EliminateCandidates -> left.digits.mask
+                    }
+                    val rightValue = when (right) {
+                        is SolveAction.PlaceValue -> right.digit
+                        is SolveAction.EliminateCandidates -> right.digits.mask
+                    }
+                    leftValue.compareTo(rightValue)
+                }
+            }
+        }
+    }
+}
+
+private fun <T : Comparable<T>> immutableSortedDistinct(values: Collection<T>): List<T> =
+    immutableList(values.distinct().sorted())
+
+private fun <T> immutableList(values: Collection<T>): List<T> =
+    Collections.unmodifiableList(ArrayList(values))
