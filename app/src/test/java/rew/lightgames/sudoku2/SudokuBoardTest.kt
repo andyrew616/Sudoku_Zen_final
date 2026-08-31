@@ -150,6 +150,102 @@ class SudokuBoardTest {
     }
 
     @Test
+    fun wrong_but_nonconflicting_player_entry_is_not_a_visible_conflict() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = 1, original_number = 0))
+
+        assertNotEquals("Entry should be wrong against the hidden solution", 1, board.solution[0][2])
+        assertFalse(board.hasVisibleConflict(0, 2))
+    }
+
+    @Test
+    fun player_entry_matching_solution_is_not_a_visible_conflict() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = board.solution[0][2], original_number = 0))
+
+        assertFalse(board.hasVisibleConflict(0, 2))
+    }
+
+    @Test
+    fun row_duplicate_marks_both_player_entries_as_conflicting() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = 4, original_number = 0))
+        board.setCell(0, 3, Cell(number = 4, original_number = 0))
+
+        assertTrue(board.hasVisibleConflict(0, 2))
+        assertTrue(board.hasVisibleConflict(0, 3))
+    }
+
+    @Test
+    fun column_duplicate_marks_both_player_entries_as_conflicting() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = 4, original_number = 0))
+        board.setCell(3, 2, Cell(number = 4, original_number = 0))
+
+        assertTrue(board.hasVisibleConflict(0, 2))
+        assertTrue(board.hasVisibleConflict(3, 2))
+    }
+
+    @Test
+    fun box_duplicate_marks_both_player_entries_as_conflicting() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = 4, original_number = 0))
+        board.setCell(1, 1, Cell(number = 4, original_number = 0))
+
+        assertTrue(board.hasVisibleConflict(0, 2))
+        assertTrue(board.hasVisibleConflict(1, 1))
+    }
+
+    @Test
+    fun player_entry_conflicting_with_fixed_clue_is_detected() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = 5, original_number = 0))
+
+        assertTrue(board.hasVisibleConflict(0, 2))
+        assertTrue("The visible fixed peer participates in the duplicate", board.hasVisibleConflict(0, 0))
+        assertFalse("Only the player entry is editable for error styling", board.getCell(0, 0).isEditable)
+    }
+
+    @Test
+    fun erasing_duplicate_clears_conflict_from_remaining_value() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = 4, original_number = 0))
+        board.setCell(0, 3, Cell(number = 4, original_number = 0))
+        board.setCell(0, 3, Cell(number = 0, original_number = 0))
+
+        assertFalse(board.hasVisibleConflict(0, 2))
+        assertFalse(board.hasVisibleConflict(0, 3))
+    }
+
+    @Test
+    fun changing_duplicate_value_clears_conflict_from_both_cells() {
+        val board = createBoardWithGivens()
+        board.setCell(0, 2, Cell(number = 4, original_number = 0))
+        board.setCell(0, 3, Cell(number = 4, original_number = 0))
+        board.setCell(0, 3, Cell(number = 6, original_number = 0))
+
+        assertFalse(board.hasVisibleConflict(0, 2))
+        assertFalse(board.hasVisibleConflict(0, 3))
+    }
+
+    @Test
+    fun notes_do_not_create_visible_conflicts() {
+        val board = createBoardWithGivens()
+        board.getCell(0, 2).addNote(5)
+        board.getCell(0, 3).addNote(5)
+
+        assertFalse(board.hasVisibleConflict(0, 2))
+        assertFalse(board.hasVisibleConflict(0, 3))
+    }
+
+    @Test
+    fun solution_value_remains_available_for_hints() {
+        val board = createBoardWithGivens()
+
+        assertEquals(board.solution[0][2], board.solutionValueAt(0, 2))
+    }
+
+    @Test
     fun default_board_has_zero_cells() {
         val solution = createSolution()
         val board = SudokuBoard(solution = solution)
