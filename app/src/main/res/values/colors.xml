@@ -55,5 +55,20 @@
     <color name="gameplay_gold_soft">#57E3BB6D</color>
     <color name="gameplay_divider">#1F4E4760</color>
 
+    <!-- Menu refresh: quiet parchment surfaces over the shared watercolour scene. -->
+    <color name="menu_surface">#A8FFFDF9</color>
+    <color name="menu_surface_pressed">#C9F4EFF8</color>
+    <color name="menu_surface_quiet">#52FFFDF9</color>
+    <color name="menu_surface_border">#A8FFFFFF</color>
+    <color name="menu_play_surface_lavender">#78F0EBF7</color>
+    <color name="menu_play_surface_aqua">#70E7F4F3</color>
+    <color name="menu_play_surface_pressed">#9AF1ECF7</color>
+    <color name="menu_utility_surface">#3EFFFDF9</color>
+    <color name="menu_primary_border">#329B87B8</color>
+    <color name="menu_resume_border">#2C6FA9B2</color>
+    <color name="menu_lavender">#766A9E</color>
+    <color name="menu_ink_muted_strong">#403B4D</color>
+    <color name="menu_gold_pressed">#9AE3BB6D</color>
+
 
 </resources>

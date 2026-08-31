@@ -2,12 +2,15 @@ package rew.lightgames.sudoku2
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
 
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.fragment.app.Fragment
 
 import androidx.navigation.fragment.findNavController
@@ -15,7 +18,6 @@ import androidx.navigation.fragment.findNavController
 
 
 class FirstFragment : Fragment() {
-    var drawableAnimation = HashSet<AnimatedVectorDrawable>()
     private fun playPop() {
 
         // TODO: 13/05/2023  
@@ -39,10 +41,6 @@ class FirstFragment : Fragment() {
         } else {
             requireView().findViewById<View>(R.id.Resume).visibility = View.VISIBLE
         }
-        drawableAnimation.add(view.findViewById<View>(R.id.Start).background as AnimatedVectorDrawable)
-        drawableAnimation.add(view.findViewById<View>(R.id.Resume).background as AnimatedVectorDrawable)
-        drawableAnimation.add(view.findViewById<View>(R.id.OptnBttn).background as AnimatedVectorDrawable)
-        buttonAnimator()
         view.findViewById<View>(R.id.Start).setOnClickListener { view1: View? ->
             playPop()
             findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
@@ -59,11 +57,27 @@ class FirstFragment : Fragment() {
             val i = Intent(activity, OptionsActivity::class.java)
             startActivity(i)
         }
+        applyButtonSemantics(
+            view.findViewById(R.id.Start),
+            view.findViewById(R.id.Resume),
+            view.findViewById(R.id.OptnBttn)
+        )
     }
 
-    private fun buttonAnimator() {
-        for (animatedVectorDrawable in drawableAnimation) {
-            animatedVectorDrawable.start()
+    private fun applyButtonSemantics(vararg views: View) {
+        views.forEach { menuAction ->
+            ViewCompat.setAccessibilityDelegate(
+                menuAction,
+                object : AccessibilityDelegateCompat() {
+                    override fun onInitializeAccessibilityNodeInfo(
+                        host: View,
+                        info: AccessibilityNodeInfoCompat
+                    ) {
+                        super.onInitializeAccessibilityNodeInfo(host, info)
+                        info.className = Button::class.java.name
+                    }
+                }
+            )
         }
     }
 }
