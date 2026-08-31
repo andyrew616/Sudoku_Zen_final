@@ -5,8 +5,6 @@
     import android.view.LayoutInflater
     import android.view.View
     import android.view.ViewGroup
-    import android.widget.Button
-    import android.widget.ImageButton
     import androidx.fragment.app.Fragment
     import androidx.navigation.fragment.findNavController
 
@@ -24,21 +22,21 @@
             super.onViewCreated(view, savedInstanceState)
 
             // Easy button click listener
-            view.findViewById<ImageButton>(R.id.Easy).setOnClickListener {
+            view.findViewById<View>(R.id.Easy).setOnClickListener {
                 val intent = Intent(activity, MainActivity::class.java)
                 intent.putExtra("difficulty", "easy")
                 start_game(intent)
             }
 
             // Medium button click listener
-            view.findViewById<ImageButton>(R.id.Medium).setOnClickListener {
+            view.findViewById<View>(R.id.Medium).setOnClickListener {
                 val intent = Intent(activity, MainActivity::class.java)
                 intent.putExtra("difficulty", "medium")
                 start_game(intent)
             }
 
             // Hard button click listener
-            view.findViewById<ImageButton>(R.id.HardBttn).setOnClickListener {
+            view.findViewById<View>(R.id.HardBttn).setOnClickListener {
                 val intent = Intent(activity, MainActivity::class.java)
                 intent.putExtra("difficulty", "hard")
                 start_game(intent)
@@ -46,7 +44,7 @@
             }
 
             // Previous button click listener
-            view.findViewById<Button>(R.id.button_second).setOnClickListener {
+            view.findViewById<View>(R.id.button_second).setOnClickListener {
                 findNavController().navigate(R.id.action_SecondFragment_to_FirstFragment)
             }
         }
