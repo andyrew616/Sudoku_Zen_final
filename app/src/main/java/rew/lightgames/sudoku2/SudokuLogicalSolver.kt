@@ -58,6 +58,7 @@ class SudokuLogicalSolver {
             ?: findXWing(grid)
             ?: findXYWing(grid)
             ?: findSkyscraper(grid)
+            ?: findTwoStringKite(grid)
 
     fun solve(board: IntArray): LogicalSolveResult {
         val creation = CandidateGrid.create(board)
@@ -436,6 +437,70 @@ class SudokuLogicalSolver {
                             )
                         )
                     }
+                }
+            }
+        }
+        return null
+    }
+
+    internal fun findTwoStringKite(grid: CandidateGrid): LogicalStep? {
+        for (digit in 1..9) {
+            for (rowIndex in 0..8) {
+                val rowHouse = HouseRef(HouseType.ROW, rowIndex)
+                val rowPositions = grid.candidatePositions(rowHouse, digit)
+                if (rowPositions.size != 2) continue
+
+                for (columnIndex in 0..8) {
+                    val columnHouse = HouseRef(HouseType.COLUMN, columnIndex)
+                    val columnPositions = grid.candidatePositions(columnHouse, digit)
+                    if (columnPositions.size != 2) continue
+
+                    val support = rowPositions + columnPositions
+                    if (support.distinct().size != 4) continue
+
+                    // A degenerate support set can offer more than one same-box connector
+                    // interpretation. Normalize it once by connector index; do not fall
+                    // through to an alternate interpretation after its targets are removed.
+                    val connectors = rowPositions.flatMap { rowConnector ->
+                        columnPositions.mapNotNull { columnConnector ->
+                            if (boxFor(rowConnector) == boxFor(columnConnector)) {
+                                rowConnector to columnConnector
+                            } else {
+                                null
+                            }
+                        }
+                    }.minWithOrNull(compareBy<Pair<CellRef, CellRef>>({ it.first }, { it.second }))
+                        ?: continue
+                    val (rowConnector, columnConnector) = connectors
+                    val rowOuter = rowPositions.single { it != rowConnector }
+                    val columnOuter = columnPositions.single { it != columnConnector }
+
+                    val rowOuterPeers = grid.peersOf(rowOuter)
+                    val columnOuterPeers = grid.peersOf(columnOuter)
+                    val targets = grid.cellsRowMajor().filter { cell ->
+                        cell !in support &&
+                            grid.valueAt(cell) == 0 &&
+                            digit in grid.candidatesAt(cell) &&
+                            cell in rowOuterPeers &&
+                            cell in columnOuterPeers
+                    }
+                    if (targets.isEmpty()) continue
+
+                    return LogicalStep(
+                        SudokuTechnique.TWO_STRING_KITE,
+                        targets.map {
+                            SolveAction.EliminateCandidates(it, DigitSet.of(digit))
+                        },
+                        StepEvidence.TwoStringKite(
+                            digit = digit,
+                            rowHouse = rowHouse,
+                            columnHouse = columnHouse,
+                            rowConnector = rowConnector,
+                            columnConnector = columnConnector,
+                            rowOuter = rowOuter,
+                            columnOuter = columnOuter
+                        )
+                    )
                 }
             }
         }

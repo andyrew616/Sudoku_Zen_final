@@ -118,7 +118,8 @@ enum class SudokuTechnique {
     HIDDEN_TRIPLE,
     X_WING,
     XY_WING,
-    SKYSCRAPER
+    SKYSCRAPER,
+    TWO_STRING_KITE
 }
 
 sealed interface SolveAction {
@@ -382,6 +383,40 @@ sealed interface StepEvidence {
             "Skyscraper(digit=$digit, orientation=$orientation, " +
                 "sourceHouses=$sourceHouses, alignedCells=$alignedCells, towers=$towers)"
     }
+
+    data class TwoStringKite(
+        val digit: Int,
+        val rowHouse: HouseRef,
+        val columnHouse: HouseRef,
+        val rowConnector: CellRef,
+        val columnConnector: CellRef,
+        val rowOuter: CellRef,
+        val columnOuter: CellRef
+    ) : StepEvidence {
+        init {
+            DigitSet.requireDigit(digit)
+            require(rowHouse.type == HouseType.ROW) {
+                "Two-String Kite row source must be a row"
+            }
+            require(columnHouse.type == HouseType.COLUMN) {
+                "Two-String Kite column source must be a column"
+            }
+            require(rowConnector.belongsTo(rowHouse) && rowOuter.belongsTo(rowHouse)) {
+                "Row connector and outer endpoint must belong to the row source"
+            }
+            require(
+                columnConnector.belongsTo(columnHouse) && columnOuter.belongsTo(columnHouse)
+            ) {
+                "Column connector and outer endpoint must belong to the column source"
+            }
+            require(rowConnector.boxIndex() == columnConnector.boxIndex()) {
+                "Two-String Kite connectors must share a box"
+            }
+            require(
+                listOf(rowConnector, columnConnector, rowOuter, columnOuter).distinct().size == 4
+            ) { "Two-String Kite support cells must be distinct" }
+        }
+    }
 }
 
 class LogicalStep(
@@ -468,3 +503,5 @@ private fun CellRef.coverIndexFor(orientation: HouseType): Int = when (orientati
     HouseType.COLUMN -> row
     HouseType.BOX -> error("A box cannot be a Skyscraper orientation")
 }
+
+private fun CellRef.boxIndex(): Int = (row / 3) * 3 + column / 3
