@@ -167,19 +167,60 @@ sealed interface StepEvidence {
             require(this.sourceCells.isNotEmpty()) { "Locked candidates require source cells" }
             require(sourceHouse != targetHouse) { "Source and target houses must differ" }
         }
+
+        override fun equals(other: Any?): Boolean =
+            other is LockedCandidates &&
+                digit == other.digit &&
+                sourceHouse == other.sourceHouse &&
+                targetHouse == other.targetHouse &&
+                sourceCells == other.sourceCells
+
+        override fun hashCode(): Int {
+            var result = digit
+            result = 31 * result + sourceHouse.hashCode()
+            result = 31 * result + targetHouse.hashCode()
+            result = 31 * result + sourceCells.hashCode()
+            return result
+        }
+
+        override fun toString(): String =
+            "LockedCandidates(digit=$digit, sourceHouse=$sourceHouse, " +
+                "targetHouse=$targetHouse, sourceCells=$sourceCells)"
     }
 
     class Subset(
         val house: HouseRef,
         val digits: DigitSet,
-        cells: Collection<CellRef>
+        cells: Collection<CellRef>,
+        val hidden: Boolean = false
     ) : StepEvidence {
         val cells: List<CellRef> = immutableSortedDistinct(cells)
 
         init {
             require(!digits.isEmpty) { "Subset digits must not be empty" }
             require(this.cells.isNotEmpty()) { "Subset cells must not be empty" }
+            require(digits.size == this.cells.size) {
+                "Subset evidence must contain the same number of digits and cells"
+            }
         }
+
+        override fun equals(other: Any?): Boolean =
+            other is Subset &&
+                house == other.house &&
+                digits == other.digits &&
+                cells == other.cells &&
+                hidden == other.hidden
+
+        override fun hashCode(): Int {
+            var result = house.hashCode()
+            result = 31 * result + digits.hashCode()
+            result = 31 * result + cells.hashCode()
+            result = 31 * result + hidden.hashCode()
+            return result
+        }
+
+        override fun toString(): String =
+            "Subset(house=$house, digits=$digits, cells=$cells, hidden=$hidden)"
     }
 
     class Fish(
@@ -237,7 +278,7 @@ class LogicalStep(
             ) { "Single evidence must match its sole placement action" }
         }
 
-        this.actions = immutableList(actions.sortedWith(ACTION_COMPARATOR))
+        this.actions = immutableList(actions.sortedWith(SOLVE_ACTION_COMPARATOR))
     }
 
     override fun equals(other: Any?): Boolean =
@@ -256,29 +297,28 @@ class LogicalStep(
     override fun toString(): String =
         "LogicalStep(technique=$technique, actions=$actions, evidence=$evidence)"
 
-    private companion object {
-        val ACTION_COMPARATOR = Comparator<SolveAction> { left, right ->
-            val cellComparison = left.cell.compareTo(right.cell)
-            if (cellComparison != 0) {
-                cellComparison
-            } else {
-                val leftType = if (left is SolveAction.PlaceValue) 0 else 1
-                val rightType = if (right is SolveAction.PlaceValue) 0 else 1
-                val typeComparison = leftType.compareTo(rightType)
-                if (typeComparison != 0) {
-                    typeComparison
-                } else {
-                    val leftValue = when (left) {
-                        is SolveAction.PlaceValue -> left.digit
-                        is SolveAction.EliminateCandidates -> left.digits.mask
-                    }
-                    val rightValue = when (right) {
-                        is SolveAction.PlaceValue -> right.digit
-                        is SolveAction.EliminateCandidates -> right.digits.mask
-                    }
-                    leftValue.compareTo(rightValue)
-                }
+}
+
+internal val SOLVE_ACTION_COMPARATOR = Comparator<SolveAction> { left, right ->
+    val cellComparison = left.cell.compareTo(right.cell)
+    if (cellComparison != 0) {
+        cellComparison
+    } else {
+        val leftType = if (left is SolveAction.PlaceValue) 0 else 1
+        val rightType = if (right is SolveAction.PlaceValue) 0 else 1
+        val typeComparison = leftType.compareTo(rightType)
+        if (typeComparison != 0) {
+            typeComparison
+        } else {
+            val leftValue = when (left) {
+                is SolveAction.PlaceValue -> left.digit
+                is SolveAction.EliminateCandidates -> left.digits.mask
             }
+            val rightValue = when (right) {
+                is SolveAction.PlaceValue -> right.digit
+                is SolveAction.EliminateCandidates -> right.digits.mask
+            }
+            leftValue.compareTo(rightValue)
         }
     }
 }

@@ -44,10 +44,17 @@ class LogicalSolveResult(
             "remainingCandidates=$remainingCandidates, steps=$steps)"
 }
 
-/** Deterministic singles-only logical solver. It never guesses, branches, or backtracks. */
+/** Deterministic human-logical solver. It never guesses, branches, or backtracks. */
 class SudokuLogicalSolver {
     fun nextStep(grid: CandidateGrid): LogicalStep? =
-        findNakedSingle(grid) ?: findHiddenSingle(grid)
+        findNakedSingle(grid)
+            ?: findHiddenSingle(grid)
+            ?: findPointing(grid)
+            ?: findClaiming(grid)
+            ?: findNakedSubset(grid, 2, SudokuTechnique.NAKED_PAIR)
+            ?: findHiddenSubset(grid, 2, SudokuTechnique.HIDDEN_PAIR)
+            ?: findNakedSubset(grid, 3, SudokuTechnique.NAKED_TRIPLE)
+            ?: findHiddenSubset(grid, 3, SudokuTechnique.HIDDEN_TRIPLE)
 
     fun solve(board: IntArray): LogicalSolveResult {
         val creation = CandidateGrid.create(board)
@@ -57,16 +64,20 @@ class SudokuLogicalSolver {
 
         val grid = (creation as CandidateGridCreationResult.Success).grid
         val steps = ArrayList<LogicalStep>()
+        val maximumSteps = progress(grid)
 
-        // Every supported step places one value, so the loop can succeed at most 81 times.
-        repeat(81) {
+        // Progress is finite (at most 81 empty cells + 729 candidates) and strictly decreases.
+        repeat(maximumSteps) {
             if (isSolved(grid)) return result(LogicalSolveStatus.SOLVED, grid, steps)
 
             val step = nextStep(grid)
                 ?: return result(LogicalSolveStatus.STALLED, grid, steps)
-            val action = step.actions.single() as SolveAction.PlaceValue
-            if (grid.place(action.cell, action.digit) != CandidateGridMutationResult.Success) {
-                // A detected forced placement that contradicts the grid proves the state invalid.
+            val progressBefore = progress(grid)
+            if (grid.applyActions(step.actions) != CandidateGridMutationResult.Success) {
+                // A detected logical step that contradicts the grid proves the state invalid.
+                return result(LogicalSolveStatus.INVALID, grid, steps)
+            }
+            if (progress(grid) >= progressBefore) {
                 return result(LogicalSolveStatus.INVALID, grid, steps)
             }
             steps.add(step)
@@ -75,7 +86,7 @@ class SudokuLogicalSolver {
         return if (isSolved(grid)) {
             result(LogicalSolveStatus.SOLVED, grid, steps)
         } else {
-            // Defensive invariant: 81 successful placements must fill an initially valid grid.
+            // Exhausting the initial finite progress bound indicates an internal invariant failure.
             result(LogicalSolveStatus.INVALID, grid, steps)
         }
     }
@@ -119,6 +130,147 @@ class SudokuLogicalSolver {
         return null
     }
 
+    internal fun findPointing(grid: CandidateGrid): LogicalStep? {
+        for (boxIndex in 0..8) {
+            val box = HouseRef(HouseType.BOX, boxIndex)
+            for (digit in 1..9) {
+                val supportingCells = grid.candidatePositions(box, digit)
+                if (supportingCells.size < 2) continue
+
+                val rows = supportingCells.map { it.row }.distinct()
+                if (rows.size == 1) {
+                    val row = HouseRef(HouseType.ROW, rows.single())
+                    val targets = grid.candidatePositions(row, digit)
+                        .filter { it !in grid.cellsIn(box) }
+                    if (targets.isNotEmpty()) {
+                        return lockedCandidatesStep(
+                            SudokuTechnique.LOCKED_CANDIDATES_POINTING,
+                            digit,
+                            box,
+                            row,
+                            supportingCells,
+                            targets
+                        )
+                    }
+                }
+
+                val columns = supportingCells.map { it.column }.distinct()
+                if (columns.size == 1) {
+                    val column = HouseRef(HouseType.COLUMN, columns.single())
+                    val targets = grid.candidatePositions(column, digit)
+                        .filter { it !in grid.cellsIn(box) }
+                    if (targets.isNotEmpty()) {
+                        return lockedCandidatesStep(
+                            SudokuTechnique.LOCKED_CANDIDATES_POINTING,
+                            digit,
+                            box,
+                            column,
+                            supportingCells,
+                            targets
+                        )
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    internal fun findClaiming(grid: CandidateGrid): LogicalStep? {
+        for (type in listOf(HouseType.ROW, HouseType.COLUMN)) {
+            for (houseIndex in 0..8) {
+                val source = HouseRef(type, houseIndex)
+                for (digit in 1..9) {
+                    val supportingCells = grid.candidatePositions(source, digit)
+                    if (supportingCells.size < 2) continue
+                    val boxes = supportingCells.map(::boxFor).distinct()
+                    if (boxes.size != 1) continue
+                    val box = boxes.single()
+                    val targets = grid.candidatePositions(box, digit)
+                        .filter { it !in grid.cellsIn(source) }
+                    if (targets.isEmpty()) continue
+                    return lockedCandidatesStep(
+                        SudokuTechnique.LOCKED_CANDIDATES_CLAIMING,
+                        digit,
+                        source,
+                        box,
+                        supportingCells,
+                        targets
+                    )
+                }
+            }
+        }
+        return null
+    }
+
+    internal fun findNakedSubset(
+        grid: CandidateGrid,
+        size: Int,
+        technique: SudokuTechnique
+    ): LogicalStep? {
+        require(size == 2 || size == 3) { "Only pairs and triples are supported" }
+        for (house in canonicalHouses()) {
+            val unsolved = grid.cellsIn(house).filter { grid.valueAt(it) == 0 }
+            val eligible = unsolved.filter { grid.candidatesAt(it).size in 1..size }
+            for (cells in cellCombinations(eligible, size)) {
+                val union = DigitSet.fromMask(cells.fold(0) { mask, cell ->
+                    mask or grid.candidatesAt(cell).mask
+                })
+                if (union.size != size) continue
+
+                if (size == 2) {
+                    if (cells.any { grid.candidatesAt(it) != union }) continue
+                    if (unsolved.count { grid.candidatesAt(it) == union } != 2) continue
+                } else {
+                    val confinedCells = unsolved.filter { cell ->
+                        grid.candidatesAt(cell).mask and union.mask.inv() == 0
+                    }
+                    if (confinedCells.size != 3 || confinedCells != cells) continue
+                }
+
+                val actions = unsolved
+                    .filter { it !in cells }
+                    .mapNotNull { cell -> eliminationForIntersection(grid, cell, union) }
+                if (actions.isEmpty()) continue
+                return LogicalStep(
+                    technique,
+                    actions,
+                    StepEvidence.Subset(house, union, cells, hidden = false)
+                )
+            }
+        }
+        return null
+    }
+
+    internal fun findHiddenSubset(
+        grid: CandidateGrid,
+        size: Int,
+        technique: SudokuTechnique
+    ): LogicalStep? {
+        require(size == 2 || size == 3) { "Only pairs and triples are supported" }
+        for (house in canonicalHouses()) {
+            for (digits in digitCombinations(size)) {
+                val positionLists = digits.map { grid.candidatePositions(house, it) }
+                if (positionLists.any { it.isEmpty() }) continue
+                val cells = positionLists.flatten().distinct().sorted()
+                if (cells.size != size) continue
+                if (size == 2 && positionLists.any { it != cells }) continue
+
+                val digitSet = DigitSet.of(*digits.toIntArray())
+                val actions = cells.mapNotNull { cell ->
+                    val extras = grid.candidatesAt(cell).remove(digitSet)
+                    if (extras.isEmpty) null else SolveAction.EliminateCandidates(cell, extras)
+                }
+                if (actions.isEmpty()) continue
+                return LogicalStep(
+                    technique,
+                    actions,
+                    StepEvidence.Subset(house, digitSet, cells, hidden = true)
+                )
+            }
+        }
+        return null
+    }
+
     private fun singleStep(
         technique: SudokuTechnique,
         cell: CellRef,
@@ -130,6 +282,71 @@ class SudokuLogicalSolver {
         actions = listOf(SolveAction.PlaceValue(cell, digit)),
         evidence = StepEvidence.Single(cell, digit, candidates, uniqueIn)
     )
+
+    private fun lockedCandidatesStep(
+        technique: SudokuTechnique,
+        digit: Int,
+        source: HouseRef,
+        target: HouseRef,
+        supportingCells: List<CellRef>,
+        targets: List<CellRef>
+    ): LogicalStep = LogicalStep(
+        technique,
+        targets.map { SolveAction.EliminateCandidates(it, DigitSet.of(digit)) },
+        StepEvidence.LockedCandidates(digit, source, target, supportingCells)
+    )
+
+    private fun eliminationForIntersection(
+        grid: CandidateGrid,
+        cell: CellRef,
+        digits: DigitSet
+    ): SolveAction.EliminateCandidates? {
+        val intersection = DigitSet.fromMask(grid.candidatesAt(cell).mask and digits.mask)
+        return if (intersection.isEmpty) null else SolveAction.EliminateCandidates(cell, intersection)
+    }
+
+    private fun canonicalHouses(): List<HouseRef> = HouseType.entries.flatMap { type ->
+        (0..8).map { index -> HouseRef(type, index) }
+    }
+
+    private fun cellCombinations(cells: List<CellRef>, size: Int): List<List<CellRef>> {
+        val combinations = ArrayList<List<CellRef>>()
+        for (first in 0 until cells.size) {
+            for (second in first + 1 until cells.size) {
+                if (size == 2) {
+                    combinations.add(listOf(cells[first], cells[second]))
+                } else {
+                    for (third in second + 1 until cells.size) {
+                        combinations.add(listOf(cells[first], cells[second], cells[third]))
+                    }
+                }
+            }
+        }
+        return combinations
+    }
+
+    private fun digitCombinations(size: Int): List<List<Int>> {
+        val combinations = ArrayList<List<Int>>()
+        for (first in 1..9) {
+            for (second in first + 1..9) {
+                if (size == 2) {
+                    combinations.add(listOf(first, second))
+                } else {
+                    for (third in second + 1..9) {
+                        combinations.add(listOf(first, second, third))
+                    }
+                }
+            }
+        }
+        return combinations
+    }
+
+    private fun boxFor(cell: CellRef): HouseRef =
+        HouseRef(HouseType.BOX, (cell.row / 3) * 3 + cell.column / 3)
+
+    internal fun progress(grid: CandidateGrid): Int = grid.cellsRowMajor().sumOf { cell ->
+        if (grid.valueAt(cell) == 0) 1 + grid.candidatesAt(cell).size else 0
+    }
 
     private fun isSolved(grid: CandidateGrid): Boolean =
         grid.cellsRowMajor().all { grid.valueAt(it) != 0 }

@@ -27,6 +27,7 @@ sealed interface CandidateGridMutationError {
     data class NoCandidatesRemoved(val cell: CellRef, val requested: DigitSet) : CandidateGridMutationError
     data class WouldCreateContradiction(val cell: CellRef) : CandidateGridMutationError
     data class DuplicatePlacedValue(val house: HouseRef, val digit: Int) : CandidateGridMutationError
+    data class DuplicateActionTarget(val cell: CellRef) : CandidateGridMutationError
 }
 
 /**
@@ -134,6 +135,33 @@ class CandidateGrid private constructor(
         }
 
         candidateMasks[index] = remainingMask
+        return CandidateGridMutationResult.Success
+    }
+
+    /** Applies a complete logical step transactionally; failure leaves this grid unchanged. */
+    fun applyActions(actions: Collection<SolveAction>): CandidateGridMutationResult {
+        require(actions.isNotEmpty()) { "At least one action is required" }
+        val canonicalActions = actions.sortedWith(SOLVE_ACTION_COMPARATOR)
+        val duplicateTarget = canonicalActions.zipWithNext().firstOrNull { (first, second) ->
+            first.cell == second.cell
+        }
+        if (duplicateTarget != null) {
+            return CandidateGridMutationResult.Failure(
+                CandidateGridMutationError.DuplicateActionTarget(duplicateTarget.first.cell)
+            )
+        }
+
+        val staged = CandidateGrid(values.clone(), candidateMasks.clone())
+        for (action in canonicalActions) {
+            val result = when (action) {
+                is SolveAction.PlaceValue -> staged.place(action.cell, action.digit)
+                is SolveAction.EliminateCandidates -> staged.eliminate(action.cell, action.digits)
+            }
+            if (result is CandidateGridMutationResult.Failure) return result
+        }
+
+        staged.values.copyInto(values)
+        staged.candidateMasks.copyInto(candidateMasks)
         return CandidateGridMutationResult.Success
     }
 

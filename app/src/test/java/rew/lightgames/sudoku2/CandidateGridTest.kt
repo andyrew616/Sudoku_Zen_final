@@ -224,6 +224,70 @@ class CandidateGridTest {
     }
 
     @Test
+    fun applyActions_appliesMultipleEliminationsAtomicallyInCanonicalOrder() {
+        val grid = create()
+        val actions = listOf(
+            SolveAction.EliminateCandidates(CellRef(4, 4), DigitSet.of(2, 3)),
+            SolveAction.EliminateCandidates(CellRef(0, 0), DigitSet.of(1))
+        )
+
+        assertEquals(CandidateGridMutationResult.Success, grid.applyActions(actions))
+        assertFalse(1 in grid.candidatesAt(CellRef(0, 0)))
+        assertFalse(2 in grid.candidatesAt(CellRef(4, 4)))
+        assertFalse(3 in grid.candidatesAt(CellRef(4, 4)))
+    }
+
+    @Test
+    fun applyActions_failureRollsBackEveryEarlierAction() {
+        val grid = create()
+        val before = grid.snapshot()
+        val result = grid.applyActions(
+            listOf(
+                SolveAction.EliminateCandidates(CellRef(0, 0), DigitSet.of(1)),
+                SolveAction.EliminateCandidates(CellRef(0, 1), DigitSet.ALL_DIGITS)
+            )
+        )
+
+        assertTrue(result is CandidateGridMutationResult.Failure)
+        assertEquals(before, grid.snapshot())
+    }
+
+    @Test
+    fun applyActions_rejectsDuplicateTargetsWithoutMutation() {
+        val grid = create()
+        val before = grid.snapshot()
+        assertEquals(
+            CandidateGridMutationResult.Failure(
+                CandidateGridMutationError.DuplicateActionTarget(CellRef(0, 0))
+            ),
+            grid.applyActions(
+                listOf(
+                    SolveAction.EliminateCandidates(CellRef(0, 0), DigitSet.of(1)),
+                    SolveAction.EliminateCandidates(CellRef(0, 0), DigitSet.of(2))
+                )
+            )
+        )
+        assertEquals(before, grid.snapshot())
+    }
+
+    @Test
+    fun applyActions_reportsLowestDuplicateTargetDeterministically() {
+        val grid = create()
+        val actions = linkedSetOf<SolveAction>(
+            SolveAction.EliminateCandidates(CellRef(8, 8), DigitSet.of(1)),
+            SolveAction.EliminateCandidates(CellRef(8, 8), DigitSet.of(2)),
+            SolveAction.EliminateCandidates(CellRef(0, 1), DigitSet.of(3)),
+            SolveAction.EliminateCandidates(CellRef(0, 1), DigitSet.of(4))
+        )
+        assertEquals(
+            CandidateGridMutationResult.Failure(
+                CandidateGridMutationError.DuplicateActionTarget(CellRef(0, 1))
+            ),
+            grid.applyActions(actions)
+        )
+    }
+
+    @Test
     fun logicalElimination_persistsAcrossLaterUnrelatedPlacement() {
         val grid = create()
         val target = CellRef(4, 4)

@@ -377,8 +377,14 @@ class SudokuLogicalSolverTest {
             }
 
             for (step in result.steps) {
-                val action = step.actions.single() as SolveAction.PlaceValue
-                if (action.digit != oracle!![action.cell.index]) incorrectPlacements++
+                for (action in step.actions) {
+                    if (
+                        action is SolveAction.PlaceValue &&
+                        action.digit != oracle!![action.cell.index]
+                    ) {
+                        incorrectPlacements++
+                    }
+                }
             }
             validateTrace(generated.puzzle, result)
         }
@@ -398,31 +404,39 @@ class SudokuLogicalSolverTest {
         val grid = (creation as CandidateGridCreationResult.Success).grid
 
         for (step in result.steps) {
-            val action = step.actions.single() as SolveAction.PlaceValue
-            val evidence = step.evidence as StepEvidence.Single
-            assertEquals(0, grid.valueAt(action.cell))
-            assertTrue(action.digit in grid.candidatesAt(action.cell))
-            assertEquals(action.cell, evidence.cell)
-            assertEquals(action.digit, evidence.digit)
-            assertEquals(grid.candidatesAt(action.cell), evidence.candidates)
-
-            when (step.technique) {
-                SudokuTechnique.NAKED_SINGLE -> {
-                    assertNull(evidence.uniqueIn)
-                    assertEquals(1, evidence.candidates.size)
+            for (action in step.actions) {
+                assertEquals(0, grid.valueAt(action.cell))
+                when (action) {
+                    is SolveAction.PlaceValue -> {
+                        val evidence = step.evidence as StepEvidence.Single
+                        assertTrue(action.digit in grid.candidatesAt(action.cell))
+                        assertEquals(action.cell, evidence.cell)
+                        assertEquals(action.digit, evidence.digit)
+                        assertEquals(grid.candidatesAt(action.cell), evidence.candidates)
+                        if (step.technique == SudokuTechnique.NAKED_SINGLE) {
+                            assertNull(evidence.uniqueIn)
+                            assertEquals(1, evidence.candidates.size)
+                        } else {
+                            val house = evidence.uniqueIn!!
+                            assertTrue(grid.cellsIn(house).contains(action.cell))
+                            assertEquals(
+                                listOf(action.cell),
+                                grid.candidatePositions(house, action.digit)
+                            )
+                        }
+                    }
+                    is SolveAction.EliminateCandidates -> {
+                        for (digit in action.digits.digitsAscending()) {
+                            assertTrue(digit in grid.candidatesAt(action.cell))
+                        }
+                    }
                 }
-                SudokuTechnique.HIDDEN_SINGLE -> {
-                    val house = evidence.uniqueIn!!
-                    assertTrue(grid.cellsIn(house).contains(action.cell))
-                    assertEquals(listOf(action.cell), grid.candidatePositions(house, action.digit))
-                }
-                else -> throw AssertionError("Unsupported technique emitted: ${step.technique}")
             }
-            assertEquals(CandidateGridMutationResult.Success, grid.place(action.cell, action.digit))
+            assertEquals(CandidateGridMutationResult.Success, grid.applyActions(step.actions))
         }
 
         assertArrayEquals(result.finalBoard, grid.snapshot().values)
         assertEquals(result.remainingCandidates, grid.snapshot())
-        assertFalse(result.steps.any { it.actions.size != 1 })
+        assertFalse(result.steps.any { it.actions.isEmpty() })
     }
 }

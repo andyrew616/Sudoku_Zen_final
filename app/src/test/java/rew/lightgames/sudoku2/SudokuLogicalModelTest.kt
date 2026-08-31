@@ -234,4 +234,55 @@ class SudokuLogicalModelTest {
             )
         }
     }
+
+    @Test
+    fun lockedCandidatesEvidence_hasCanonicalStructuralValueSemantics() {
+        val mutableCells = mutableListOf(CellRef(0, 1), CellRef(0, 0))
+        val first = StepEvidence.LockedCandidates(
+            5,
+            HouseRef(HouseType.BOX, 0),
+            HouseRef(HouseType.ROW, 0),
+            mutableCells
+        )
+        mutableCells.clear()
+        val second = StepEvidence.LockedCandidates(
+            5,
+            HouseRef(HouseType.BOX, 0),
+            HouseRef(HouseType.ROW, 0),
+            listOf(CellRef(0, 0), CellRef(0, 1))
+        )
+
+        assertEquals(first, second)
+        assertEquals(first.hashCode(), second.hashCode())
+        assertEquals(first.toString(), second.toString())
+        assertEquals(listOf(CellRef(0, 0), CellRef(0, 1)), first.sourceCells)
+    }
+
+    @Test
+    fun subsetEvidence_hasCanonicalStructuralValueSemanticsAndCardinalityValidation() {
+        val first = StepEvidence.Subset(
+            HouseRef(HouseType.ROW, 0),
+            DigitSet.of(1, 2),
+            listOf(CellRef(0, 2), CellRef(0, 1)),
+            hidden = true
+        )
+        val second = StepEvidence.Subset(
+            HouseRef(HouseType.ROW, 0),
+            DigitSet.of(2, 1),
+            listOf(CellRef(0, 1), CellRef(0, 2)),
+            hidden = true
+        )
+
+        assertEquals(first, second)
+        assertEquals(first.hashCode(), second.hashCode())
+        assertEquals(first.toString(), second.toString())
+        assertThrows(IllegalArgumentException::class.java) {
+            StepEvidence.Subset(
+                HouseRef(HouseType.ROW, 0),
+                DigitSet.of(1, 2, 3),
+                listOf(CellRef(0, 0), CellRef(0, 1)),
+                hidden = false
+            )
+        }
+    }
 }
