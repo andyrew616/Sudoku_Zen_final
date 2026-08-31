@@ -42,7 +42,7 @@
     <dimen name="menu_tagline_size">12sp</dimen>
     <dimen name="menu_screen_title_size">30sp</dimen>
     <dimen name="menu_eyebrow_size">9sp</dimen>
-    <dimen name="menu_section_label_size">10sp</dimen>
+    <dimen name="menu_section_label_size">11sp</dimen>
     <dimen name="menu_title_to_content_gap">10dp</dimen>
     <dimen name="menu_play_tile_height">194dp</dimen>
     <dimen name="menu_tile_padding">12dp</dimen>

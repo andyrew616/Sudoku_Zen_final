@@ -23,50 +23,18 @@
             <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:alpha="0.72"
-                android:contentDescription="@null"
-                android:importantForAccessibility="no"
+                android:layout_gravity="top|center_horizontal"
+                android:contentDescription="@string/app_name"
                 android:scaleType="fitCenter"
-                android:src="@drawable/menu_title_wash" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="serif"
-                    android:letterSpacing="0.025"
-                    android:text="@string/app_name"
-                    android:textColor="@color/gameplay_ink"
-                    android:textSize="@dimen/menu_title_size" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="-2dp"
-                    android:fontFamily="serif"
-                    android:letterSpacing="0.045"
-                    android:text="@string/menu_tagline"
-                    android:textColor="@color/menu_ink_muted_strong"
-                    android:textSize="@dimen/menu_tagline_size"
-                    android:textStyle="italic" />
-            </LinearLayout>
+                android:src="@drawable/ic_logo_banner" />
         </FrameLayout>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/menu_title_to_content_gap"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.12"
             android:text="@string/menu_play_heading"
-            android:textAllCaps="true"
-            android:textColor="@color/menu_ink_muted_strong"
-            android:textSize="@dimen/menu_section_label_size" />
+            android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Section" />
 
         <GridLayout
             android:id="@+id/playModeGrid"
@@ -90,7 +58,7 @@
                 android:clipChildren="false"
                 android:contentDescription="@string/start_Bttn"
                 android:focusable="true"
-                android:gravity="center_horizontal"
+                android:gravity="center"
                 android:minWidth="@dimen/menu_min_touch_target"
                 android:minHeight="@dimen/menu_min_touch_target"
                 android:orientation="vertical"
@@ -111,11 +79,8 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:fontFamily="sans-serif-medium"
                     android:text="@string/menu_new_game"
-                    android:textColor="@color/gameplay_ink"
-                    android:textSize="@dimen/menu_tile_title_size" />
+                    android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Title" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -124,8 +89,7 @@
                     android:gravity="center"
                     android:maxLines="2"
                     android:text="@string/menu_new_game_subtitle"
-                    android:textColor="@color/gameplay_ink_muted"
-                    android:textSize="@dimen/menu_tile_subtitle_size" />
+                    android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Subtitle" />
             </LinearLayout>
 
             <LinearLayout
@@ -140,7 +104,7 @@
                 android:clipChildren="false"
                 android:contentDescription="@string/resume"
                 android:focusable="true"
-                android:gravity="center_horizontal"
+                android:gravity="center"
                 android:minWidth="@dimen/menu_min_touch_target"
                 android:minHeight="@dimen/menu_min_touch_target"
                 android:orientation="vertical"
@@ -161,11 +125,8 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:fontFamily="sans-serif-medium"
                     android:text="@string/resume_game"
-                    android:textColor="@color/gameplay_ink"
-                    android:textSize="@dimen/menu_tile_title_size" />
+                    android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Title" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -174,8 +135,7 @@
                     android:gravity="center"
                     android:maxLines="2"
                     android:text="@string/menu_resume_subtitle"
-                    android:textColor="@color/gameplay_ink_muted"
-                    android:textSize="@dimen/menu_tile_subtitle_size" />
+                    android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Subtitle" />
             </LinearLayout>
         </GridLayout>
 
@@ -183,12 +143,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/menu_utility_gap"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.12"
             android:text="@string/menu_utility_heading"
-            android:textAllCaps="true"
-            android:textColor="@color/menu_ink_muted_strong"
-            android:textSize="@dimen/menu_section_label_size" />
+            android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Section" />
 
         <LinearLayout
             android:id="@+id/OptnBttn"
@@ -224,18 +180,15 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
                     android:text="@string/options"
-                    android:textColor="@color/gameplay_ink"
-                    android:textSize="@dimen/menu_utility_title_size" />
+                    android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.UtilityTitle" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:text="@string/menu_options_subtitle"
-                    android:textColor="@color/gameplay_ink_muted"
-                    android:textSize="@dimen/menu_tile_subtitle_size" />
+                    android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Subtitle" />
             </LinearLayout>
 
             <TextView
