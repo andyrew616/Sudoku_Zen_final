@@ -32,4 +32,40 @@
     <dimen name="gameplay_number_text_size">24sp</dimen>
     <dimen name="gameplay_number_key_radius">10dp</dimen>
     <dimen name="gameplay_number_key_stroke_width">0.5dp</dimen>
+
+    <!-- Menu screen spacing and sizing. -->
+    <dimen name="menu_screen_inset">16dp</dimen>
+    <dimen name="menu_top_inset">18dp</dimen>
+    <dimen name="menu_bottom_inset">20dp</dimen>
+    <dimen name="menu_brand_height">94dp</dimen>
+    <dimen name="menu_title_size">38sp</dimen>
+    <dimen name="menu_tagline_size">12sp</dimen>
+    <dimen name="menu_screen_title_size">30sp</dimen>
+    <dimen name="menu_eyebrow_size">9sp</dimen>
+    <dimen name="menu_section_label_size">11sp</dimen>
+    <dimen name="menu_title_to_content_gap">10dp</dimen>
+    <dimen name="menu_play_tile_height">194dp</dimen>
+    <dimen name="menu_tile_padding">12dp</dimen>
+    <dimen name="menu_tile_top_padding">4dp</dimen>
+    <dimen name="menu_play_icon_size">100dp</dimen>
+    <dimen name="menu_tile_title_size">17sp</dimen>
+    <dimen name="menu_tile_subtitle_size">12sp</dimen>
+    <dimen name="menu_grid_gap">12dp</dimen>
+    <dimen name="menu_grid_half_gap">6dp</dimen>
+    <dimen name="menu_utility_gap">18dp</dimen>
+    <dimen name="menu_utility_height">60dp</dimen>
+    <dimen name="menu_utility_icon_size">38dp</dimen>
+    <dimen name="menu_utility_title_size">15sp</dimen>
+    <dimen name="menu_min_touch_target">48dp</dimen>
+    <dimen name="menu_body_size">14sp</dimen>
+    <dimen name="menu_difficulty_gap">18dp</dimen>
+    <dimen name="menu_difficulty_tile_height">160dp</dimen>
+    <dimen name="menu_difficulty_tile_padding">12dp</dimen>
+    <dimen name="menu_difficulty_emblem_size">68dp</dimen>
+    <dimen name="menu_difficulty_emblem_gap">2dp</dimen>
+    <dimen name="menu_difficulty_subtitle_gap">2dp</dimen>
+    <dimen name="menu_medium_tile_end_margin">0dp</dimen>
+    <dimen name="menu_hard_tile_start_margin">0dp</dimen>
+    <dimen name="menu_hard_tile_top_margin">12dp</dimen>
+    <dimen name="menu_hard_tile_end_margin">0dp</dimen>
 </resources>

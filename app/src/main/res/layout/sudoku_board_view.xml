@@ -172,4 +172,64 @@
         app:layout_constraintTop_toBottomOf="@id/sudokuBoardView"
         app:layout_constraintWidth_max="430dp" />
 
+    <LinearLayout
+        android:id="@+id/generationOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="@dimen/gameplay_horizontal_inset"
+        android:layout_marginEnd="@dimen/gameplay_horizontal_inset"
+        android:background="@drawable/gameplay_board_surface"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:importantForAccessibility="yes"
+        android:orientation="vertical"
+        android:padding="24dp"
+        app:layout_constraintBottom_toBottomOf="@id/sudokuControlView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/sudokuBoardView"
+        app:layout_constraintWidth_max="430dp">
+
+        <ProgressBar
+            android:id="@+id/generationProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/gameplay_generating_puzzle"
+            android:indeterminate="true" />
+
+        <TextView
+            android:id="@+id/generationStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="@string/gameplay_generating_puzzle"
+            android:textColor="@color/gameplay_ink"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/generationRetryButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/gameplay_retry_generation"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/generationBackButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/gameplay_back_to_menu"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

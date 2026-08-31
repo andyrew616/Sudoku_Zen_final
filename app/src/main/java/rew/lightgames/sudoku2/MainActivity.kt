@@ -7,9 +7,12 @@ import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.media.SoundPool
+import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import android.widget.Button
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
@@ -29,6 +32,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     companion object {
         const val PREF_NAME = "my_preferences"
         private const val PREF_SOUND_EFFECTS = "sound_effects"
+        private const val PREF_SAVED_GAME = "saved_game"
+        private const val PREF_SAVED_DIFFICULTY = "saved_game_difficulty"
+        private const val STATE_ACTIVE_GAME = "gameplay_active_game"
+        private const val STATE_REQUESTED_DIFFICULTY = "gameplay_requested_difficulty"
     }
     private var mInterstitialAdCompletion: InterstitialAd? = null
     private var mInterstitialAdOnExit: InterstitialAd? = null
@@ -48,7 +55,13 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var hintsCountTextView: TextView
     private lateinit var modeTextView: TextView
     private lateinit var pauseButton: ImageView
+    private lateinit var generationOverlay: View
+    private lateinit var generationProgress: ProgressBar
+    private lateinit var generationStatusText: TextView
+    private lateinit var generationRetryButton: Button
+    private lateinit var generationBackButton: Button
     private lateinit var viewModel: SudokuViewModel
+    private var gameplayDifficulty: SudokuDifficulty? = null
 
     private val onBackPressedCallback: OnBackPressedCallback =
         object : OnBackPressedCallback(true) {
@@ -78,16 +91,42 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         }
 
         onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
-        val shouldResume = intent.getBooleanExtra("Resume", false)
+        setupSharedPreferences()
+        val explicitResume = intent.getBooleanExtra("Resume", false)
+        val activityRecreation = savedInstanceState != null
+        val launchMode = GameplayLaunchPolicy.mode(
+            explicitResume = explicitResume,
+            activityRecreation = activityRecreation,
+            savedActiveGame = savedInstanceState?.getBoolean(STATE_ACTIVE_GAME) == true
+        )
+        val requestedDifficulty = if (explicitResume) {
+            savedDifficulty()
+        } else if (activityRecreation) {
+            difficultyFromValue(savedInstanceState?.getString(STATE_REQUESTED_DIFFICULTY))
+        } else {
+            when (
+                val mapping = GameplayDifficultyAdapter.fromExternalValue(
+                    intent.getStringExtra(GameplayDifficultyAdapter.INTENT_EXTRA)
+                )
+            ) {
+                is GameplayDifficultyMapping.Valid -> mapping.difficulty
+                is GameplayDifficultyMapping.Invalid -> null
+            }
+        }
+        gameplayDifficulty = requestedDifficulty
         viewModel = ViewModelProvider(
             this,
-            SudokuViewModelFactory(application, !shouldResume)
+            SudokuViewModelFactory(
+                application,
+                launchMode == GameplayLaunchMode.NEW_GAME,
+                requestedDifficulty
+            )
         ).get(SudokuViewModel::class.java)
 
         setupViews()
-        setupViewModel()
         setupSound()
-        setupSharedPreferences()
+        timer = Timer(this)
+        setupViewModel()
 
         val adView = findViewById<AdView>(R.id.adView)
         val bannerHeight = adView.adSize?.getHeightInPixels(this) ?: 0
@@ -126,16 +165,21 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                 }
             })
         }
-        timer = Timer(this)
-
-        if (intent.getBooleanExtra("Resume", false)) {
-            val game = loadGame()
-            if (game != null) {
-                // Restore the game state
-                viewModel.setBoard(game.board)
-                viewModel.setHintsUsed(game.hintsUsed)
-                timer.seconds = game.timeElapsed.toInt()
-
+        if (viewModel.gameplayLoadState.value == GameplayLoadState.Idle) {
+            when (launchMode) {
+                GameplayLaunchMode.RESTORE_PERSISTED_GAME -> {
+                    val game = loadGame()
+                    if (game != null) {
+                        viewModel.setHintsUsed(game.hintsUsed)
+                        timer.seconds = game.timeElapsed.toInt()
+                        viewModel.setBoard(game.board)
+                    } else {
+                        viewModel.reportResumeUnavailable()
+                    }
+                }
+                GameplayLaunchMode.RECREATED_WITHOUT_ACTIVE_GAME ->
+                    viewModel.reportGenerationInterrupted()
+                GameplayLaunchMode.NEW_GAME -> Unit
             }
         }
 
@@ -153,7 +197,9 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             })
         }
 
-        timer.start()
+        if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
+            timer.start()
+        }
 
 
     }
@@ -165,6 +211,11 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         hintsCountTextView = findViewById(R.id.hintsCountTextView)
         modeTextView = findViewById(R.id.modeTextView)
         pauseButton = findViewById(R.id.pauseButton)
+        generationOverlay = findViewById(R.id.generationOverlay)
+        generationProgress = findViewById(R.id.generationProgress)
+        generationStatusText = findViewById(R.id.generationStatusText)
+        generationRetryButton = findViewById(R.id.generationRetryButton)
+        generationBackButton = findViewById(R.id.generationBackButton)
 
         sudokuControlView.listener = this
         sudokuBoardView.cellSelectedListener = this
@@ -172,6 +223,12 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         pauseButton.setOnClickListener {
             showPauseMenu()
 
+        }
+        generationRetryButton.setOnClickListener {
+            viewModel.retryPuzzleGeneration()
+        }
+        generationBackButton.setOnClickListener {
+            exit()
         }
     }
 
@@ -183,6 +240,9 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         viewModel.sudokuBoard.observe(this, Observer { board ->
             handleBoardUpdate(board)
         })
+        viewModel.gameplayLoadState.observe(this) { state ->
+            renderGameplayLoadState(state)
+        }
     }
 
     private fun setupSound() {
@@ -198,8 +258,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
     private fun handleBoardUpdate(board: SudokuBoard?) {
         sudokuBoardView.setBoard(board)
+        if (board == null) return
         viewModel.selectedCell.value?.let { cell ->
-            board?.getCell(cell.first, cell.second)?.let { value ->
+            if (cell.first !in 0..8 || cell.second !in 0..8) return@let
+            board.getCell(cell.first, cell.second).let { value ->
                 sudokuBoardView.updateSelectedCell(cell.first, cell.second, value)
             }
         }
@@ -210,6 +272,42 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         }
 
         saveGame()
+    }
+
+    private fun renderGameplayLoadState(state: GameplayLoadState) {
+        when (state) {
+            GameplayLoadState.Idle,
+            is GameplayLoadState.Loading -> {
+                timer.pause()
+                generationOverlay.visibility = View.VISIBLE
+                generationProgress.visibility = View.VISIBLE
+                generationStatusText.setText(R.string.gameplay_generating_puzzle)
+                generationRetryButton.visibility = View.GONE
+                generationBackButton.visibility = View.GONE
+            }
+            is GameplayLoadState.Ready -> {
+                gameplayDifficulty = state.requestedDifficulty ?: gameplayDifficulty
+                generationOverlay.visibility = View.GONE
+                generationProgress.visibility = View.GONE
+                saveGame()
+                if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                    timer.start()
+                }
+            }
+            is GameplayLoadState.Failure -> {
+                timer.pause()
+                generationOverlay.visibility = View.VISIBLE
+                generationProgress.visibility = View.GONE
+                generationStatusText.setText(R.string.gameplay_generation_failed)
+                generationRetryButton.visibility = if (state.requestedDifficulty == null) {
+                    View.GONE
+                } else {
+                    View.VISIBLE
+                }
+                generationBackButton.visibility = View.VISIBLE
+                Log.e(TAG, "Gameplay puzzle unavailable: ${state.reason}")
+            }
+        }
     }
 
     override fun onTimerUpdate(seconds: Int, timeString: String) {
@@ -304,12 +402,15 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     }
 
     private fun performPostAdActions(dialog: Dialog) {
-        viewModel
+        if (!viewModel.canGenerateNextPuzzle()) {
+            dialog.dismiss()
+            openDifficultySelection()
+            return
+        }
         viewModel.loadNextPuzzle() // Load the next puzzle
         sudokuBoardView.invalidate()
         sudokuBoardView.invalidateAllCells()
         timer.reset() // Reset the timer
-        timer.start() // Start the timer for the new puzzle
         playSound()
         dialog.dismiss()
     }
@@ -339,8 +440,9 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         }
 
         resumeBtn.setOnClickListener {
-
-            timer.start() // Start the timer for the new puzzle
+            if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
+                timer.start()
+            }
             dialog.dismiss()
         }
         optionsBtn.setOnClickListener {
@@ -387,6 +489,14 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         finish()
     }
 
+    private fun openDifficultySelection() {
+        startActivity(
+            Intent(this, MenuHostActivity::class.java)
+                .putExtra(MenuHostActivity.EXTRA_OPEN_DIFFICULTY, true)
+        )
+        finish()
+    }
+
     override fun onPause() {
         super.onPause()
         timer.pause()
@@ -395,13 +505,36 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
     override fun onResume() {
         super.onResume()
-        timer.start()
+        if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
+            timer.start()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         timer.destroy()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        val state = viewModel.gameplayLoadState.value
+        outState.putBoolean(
+            STATE_ACTIVE_GAME,
+            state is GameplayLoadState.Ready && viewModel.sudokuBoard.value != null
+        )
+        val difficulty = when (state) {
+            is GameplayLoadState.Loading -> state.requestedDifficulty
+            is GameplayLoadState.Ready -> state.requestedDifficulty
+            is GameplayLoadState.Failure -> state.requestedDifficulty
+            GameplayLoadState.Idle, null -> null
+        }
+        difficulty?.let {
+            outState.putString(
+                STATE_REQUESTED_DIFFICULTY,
+                GameplayDifficultyAdapter.toExternalValue(it)
+            )
+        }
+        super.onSaveInstanceState(outState)
     }
 
 
@@ -414,18 +547,45 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             val editor = sharedPreferences.edit()
             val gson = Gson()
             val json = gson.toJson(game)
-            editor.putString("saved_game", json)
+            editor.putString(PREF_SAVED_GAME, json)
+            gameplayDifficulty?.let { difficulty ->
+                editor.putString(
+                    PREF_SAVED_DIFFICULTY,
+                    GameplayDifficultyAdapter.toExternalValue(difficulty)
+                )
+            }
             editor.apply()
         }
     }
 
 
     private fun loadGame(): SavedGameState? {
-        val gson = Gson()
-        val json = sharedPreferences.getString("saved_game", null)
-        val game = gson.fromJson(json, SavedGameState::class.java)
-        Log.d("MainActivity", "Loaded game: $game")
-        return game
+        return try {
+            val gson = Gson()
+            val json = sharedPreferences.getString(PREF_SAVED_GAME, null) ?: return null
+            val game = gson.fromJson(json, SavedGameState::class.java)
+            Log.d("MainActivity", "Loaded game: $game")
+            game
+        } catch (exception: RuntimeException) {
+            Log.e("MainActivity", "Saved game could not be loaded", exception)
+            null
+        }
+    }
+
+    private fun savedDifficulty(): SudokuDifficulty? = when (
+        val mapping = GameplayDifficultyAdapter.fromExternalValue(
+            sharedPreferences.getString(PREF_SAVED_DIFFICULTY, null)
+        )
+    ) {
+        is GameplayDifficultyMapping.Valid -> mapping.difficulty
+        is GameplayDifficultyMapping.Invalid -> null
+    }
+
+    private fun difficultyFromValue(value: String?): SudokuDifficulty? = when (
+        val mapping = GameplayDifficultyAdapter.fromExternalValue(value)
+    ) {
+        is GameplayDifficultyMapping.Valid -> mapping.difficulty
+        is GameplayDifficultyMapping.Invalid -> null
     }
 
 }

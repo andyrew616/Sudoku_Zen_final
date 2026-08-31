@@ -182,7 +182,7 @@ class SudokuBoardView @JvmOverloads constructor(
     private fun isError(row: Int, col: Int, cell: Cell): Boolean {
         return cell.isEditable &&
             cell.number != 0 &&
-            board?.solution?.getOrNull(row)?.getOrNull(col) != cell.number
+            board?.hasVisibleConflict(row, col) == true
     }
 
     private fun gridPaint(colorRes: Int, widthRes: Int): Paint {
