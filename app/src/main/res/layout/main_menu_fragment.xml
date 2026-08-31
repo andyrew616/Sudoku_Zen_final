@@ -139,18 +139,11 @@
             </LinearLayout>
         </GridLayout>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/menu_utility_gap"
-            android:text="@string/menu_utility_heading"
-            android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Section" />
-
         <LinearLayout
             android:id="@+id/OptnBttn"
             android:layout_width="match_parent"
             android:layout_height="@dimen/menu_utility_height"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/menu_utility_gap"
             android:background="@drawable/menu_utility_background"
             android:clickable="true"
             android:contentDescription="@string/options_bttn"

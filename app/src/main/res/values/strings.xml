@@ -44,8 +44,7 @@
     <string name="gameplay_zero">0</string>
     <string name="gameplay_numeric_value">%1$d</string>
     <string name="menu_tagline">A quiet place to think</string>
-    <string name="menu_play_heading">Play</string>
-    <string name="menu_utility_heading">Your space</string>
+    <string name="menu_play_heading">Games</string>
     <string name="menu_new_game">New Game</string>
     <string name="menu_new_game_subtitle">Choose a fresh puzzle</string>
     <string name="menu_resume_subtitle">Return to your saved board</string>
