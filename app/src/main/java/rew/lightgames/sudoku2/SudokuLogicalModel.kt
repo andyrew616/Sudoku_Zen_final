@@ -141,10 +141,16 @@ sealed interface StepEvidence {
     data class Single(
         val cell: CellRef,
         val digit: Int,
-        val house: HouseRef? = null
+        val candidates: DigitSet,
+        val uniqueIn: HouseRef? = null
     ) : StepEvidence {
         init {
             DigitSet.requireDigit(digit)
+            require(!candidates.isEmpty) { "Single evidence candidates must not be empty" }
+            require(digit in candidates) { "Single evidence candidates must contain the digit" }
+            require(uniqueIn == null || cell.belongsTo(uniqueIn)) {
+                "Single evidence house must contain the target cell"
+            }
         }
     }
 
@@ -225,8 +231,30 @@ class LogicalStep(
             "A logical step must contain at most one action per cell"
         }
 
+        if (evidence is StepEvidence.Single) {
+            require(
+                actions.singleOrNull() == SolveAction.PlaceValue(evidence.cell, evidence.digit)
+            ) { "Single evidence must match its sole placement action" }
+        }
+
         this.actions = immutableList(actions.sortedWith(ACTION_COMPARATOR))
     }
+
+    override fun equals(other: Any?): Boolean =
+        other is LogicalStep &&
+            technique == other.technique &&
+            actions == other.actions &&
+            evidence == other.evidence
+
+    override fun hashCode(): Int {
+        var result = technique.hashCode()
+        result = 31 * result + actions.hashCode()
+        result = 31 * result + evidence.hashCode()
+        return result
+    }
+
+    override fun toString(): String =
+        "LogicalStep(technique=$technique, actions=$actions, evidence=$evidence)"
 
     private companion object {
         val ACTION_COMPARATOR = Comparator<SolveAction> { left, right ->
@@ -260,3 +288,9 @@ private fun <T : Comparable<T>> immutableSortedDistinct(values: Collection<T>): 
 
 private fun <T> immutableList(values: Collection<T>): List<T> =
     Collections.unmodifiableList(ArrayList(values))
+
+private fun CellRef.belongsTo(house: HouseRef): Boolean = when (house.type) {
+    HouseType.ROW -> row == house.index
+    HouseType.COLUMN -> column == house.index
+    HouseType.BOX -> (row / 3) * 3 + column / 3 == house.index
+}

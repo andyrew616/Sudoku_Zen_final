@@ -176,4 +176,62 @@ class SudokuLogicalModelTest {
             (evidence.cells as MutableList).clear()
         }
     }
+
+    @Test
+    fun singleEvidenceAndLogicalStepsHaveStructuralEquality() {
+        val firstEvidence = StepEvidence.Single(
+            CellRef(2, 3),
+            7,
+            DigitSet.of(2, 7),
+            HouseRef(HouseType.ROW, 2)
+        )
+        val secondEvidence = StepEvidence.Single(
+            CellRef(2, 3),
+            7,
+            DigitSet.of(7, 2),
+            HouseRef(HouseType.ROW, 2)
+        )
+        val first = LogicalStep(
+            SudokuTechnique.HIDDEN_SINGLE,
+            listOf(SolveAction.PlaceValue(CellRef(2, 3), 7)),
+            firstEvidence
+        )
+        val second = LogicalStep(
+            SudokuTechnique.HIDDEN_SINGLE,
+            listOf(SolveAction.PlaceValue(CellRef(2, 3), 7)),
+            secondEvidence
+        )
+
+        assertEquals(firstEvidence, secondEvidence)
+        assertEquals(first, second)
+        assertEquals(first.hashCode(), second.hashCode())
+        assertEquals(first.toString(), second.toString())
+    }
+
+    @Test
+    fun singleEvidenceValidatesCandidatesHouseAndMatchingAction() {
+        assertThrows(IllegalArgumentException::class.java) {
+            StepEvidence.Single(CellRef(0, 0), 1, DigitSet.EMPTY)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            StepEvidence.Single(CellRef(0, 0), 1, DigitSet.of(2))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            StepEvidence.Single(
+                CellRef(0, 0),
+                1,
+                DigitSet.of(1, 2),
+                HouseRef(HouseType.ROW, 1)
+            )
+        }
+
+        val evidence = StepEvidence.Single(CellRef(0, 0), 1, DigitSet.of(1))
+        assertThrows(IllegalArgumentException::class.java) {
+            LogicalStep(
+                SudokuTechnique.NAKED_SINGLE,
+                listOf(SolveAction.PlaceValue(CellRef(0, 1), 1)),
+                evidence
+            )
+        }
+    }
 }
