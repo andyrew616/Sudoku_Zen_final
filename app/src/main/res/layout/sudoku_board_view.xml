@@ -1,97 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/bg"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/ic_waterclour_background2">
 
-    <ImageView
-        android:id="@+id/pauseButton"
-        android:layout_width="wrap_content"
-        android:layout_height="0dp"
-        android:adjustViewBounds="true"
-        android:contentDescription="@string/pause_button"
-        android:cropToPadding="false"
-        android:scaleType="fitCenter"
-        app:layout_constraintBottom_toTopOf="@+id/sudokuBoardView"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/gameplayHeader"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/gameplay_header_height"
+        android:layout_marginStart="@dimen/gameplay_horizontal_inset"
+        android:layout_marginEnd="@dimen/gameplay_horizontal_inset"
+        android:background="@drawable/gameplay_header_surface"
+        android:paddingStart="@dimen/gameplay_header_horizontal_padding"
+        android:paddingEnd="4dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/hintsCountTextView"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_pause_button" />
+        app:layout_constraintWidth_max="430dp">
 
+        <LinearLayout
+            android:id="@+id/timeMetric"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="start"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.14"
+                android:text="@string/gameplay_time_label"
+                android:textColor="@color/gameplay_ink_muted"
+                android:textSize="@dimen/gameplay_header_eyebrow_size" />
+
+            <TextView
+                android:id="@+id/timerTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.02"
+                android:text="@string/gameplay_timer_zero"
+                android:textColor="@color/gameplay_ink"
+                android:textSize="@dimen/gameplay_header_value_size" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/modePill"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/gameplay_mode_pill"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="9dp"
+            android:paddingEnd="9dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/hintsMetric"
+            app:layout_constraintStart_toEndOf="@id/timeMetric"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <View
+                android:layout_width="@dimen/gameplay_mode_dot_size"
+                android:layout_height="@dimen/gameplay_mode_dot_size"
+                android:background="@drawable/gameplay_mode_dot" />
+
+            <TextView
+                android:id="@+id/modeTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="@string/gameplay_normal_mode"
+                android:textColor="@color/gameplay_mode_ink"
+                android:textSize="@dimen/gameplay_mode_text_size" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/hintsMetric"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
+            android:gravity="end"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/pauseButton"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.14"
+                android:text="@string/gameplay_hints_label"
+                android:textColor="@color/gameplay_ink_muted"
+                android:textSize="@dimen/gameplay_header_eyebrow_size" />
+
+            <TextView
+                android:id="@+id/hintsCountTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:text="@string/gameplay_zero"
+                android:textColor="@color/gameplay_ink"
+                android:textSize="@dimen/gameplay_header_value_size" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/pauseButton"
+            android:layout_width="@dimen/gameplay_pause_size"
+            android:layout_height="@dimen/gameplay_pause_size"
+            android:background="@drawable/gameplay_utility_action"
+            android:contentDescription="@string/pause_button"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/ic_gameplay_pause" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <rew.lightgames.sudoku2.SudokuBoardView
         android:id="@+id/sudokuBoardView"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toTopOf="@+id/sudokuControlView"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/timerTextView">
-
-    </rew.lightgames.sudoku2.SudokuBoardView>
-
-    <rew.lightgames.sudoku2.SudokuControlView
-        android:id="@+id/sudokuControlView"
-        android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/adView"
+        android:layout_marginStart="@dimen/gameplay_horizontal_inset"
+        android:layout_marginTop="@dimen/gameplay_section_gap"
+        android:layout_marginEnd="@dimen/gameplay_horizontal_inset"
+        android:background="@drawable/gameplay_board_surface"
+        android:elevation="@dimen/gameplay_board_elevation"
+        app:layout_constraintDimensionRatio="1:1"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sudokuBoardView">
-
-    </rew.lightgames.sudoku2.SudokuControlView>
-
-    <TextView
-        android:id="@+id/timerTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:text="00:00"
-        android:textSize="18sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <TextView
-        android:id="@+id/modeTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Normal Mode"
-        android:textSize="18sp"
-        app:layout_constraintStart_toEndOf="@+id/timerTextView"
-        app:layout_constraintEnd_toStartOf="@+id/hintsCountTextView"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/sudokuBoardView"/>
-
-    <TextView
-        android:id="@+id/hintsCountTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:text="Hints used: 0"
-        android:textSize="18sp"
-        app:layout_constraintStart_toEndOf="@+id/modeTextView"
-        app:layout_constraintEnd_toStartOf="@+id/pauseButton"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/sudokuBoardView"/>
+        app:layout_constraintTop_toBottomOf="@id/gameplayHeader"
+        app:layout_constraintWidth_max="430dp" />
 
     <com.google.android.gms.ads.AdView
         android:id="@+id/adView"
-
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
         android:visibility="visible"
         app:adSize="BANNER"
         app:adUnitId="ca-app-pub-4002896469283656/9350655411"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/sudokuControlView">
+        app:layout_constraintTop_toBottomOf="@id/sudokuControlView"
+        app:layout_constraintVertical_bias="1" />
 
-
-    </com.google.android.gms.ads.AdView>
+    <rew.lightgames.sudoku2.SudokuControlView
+        android:id="@+id/sudokuControlView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/gameplay_horizontal_inset"
+        android:layout_marginTop="@dimen/gameplay_section_gap"
+        android:layout_marginEnd="@dimen/gameplay_horizontal_inset"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/sudokuBoardView"
+        app:layout_constraintWidth_max="430dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

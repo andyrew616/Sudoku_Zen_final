@@ -90,6 +90,26 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         setupSharedPreferences()
 
         val adView = findViewById<AdView>(R.id.adView)
+        val bannerHeight = adView.adSize?.getHeightInPixels(this) ?: 0
+        var hasRenderedBanner = false
+
+        fun updateBannerLayout(isRendered: Boolean) {
+            sudokuControlView.setReclaimedBottomSpace(if (isRendered) 0 else bannerHeight)
+        }
+
+        adView.adListener = object : AdListener() {
+            override fun onAdLoaded() {
+                hasRenderedBanner = true
+                updateBannerLayout(isRendered = true)
+            }
+
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                if (!hasRenderedBanner) {
+                    updateBannerLayout(isRendered = false)
+                }
+            }
+        }
+        updateBannerLayout(isRendered = false)
 
         var adRequest = AdRequest.Builder().build()
         if (ConsentManager.canRequestAds()) {
@@ -157,7 +177,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
     private fun setupViewModel() {
         viewModel.hintsUsed.observe(this) { hintsUsed ->
-            hintsCountTextView.text = "Hints used: $hintsUsed"
+            hintsCountTextView.text = getString(R.string.gameplay_numeric_value, hintsUsed)
         }
 
         viewModel.sudokuBoard.observe(this, Observer { board ->
@@ -198,13 +218,13 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         updateTextViews(
             timerText,
             viewModel.hintsUsed.value ?: 0,
-            if (notesMode) "Notes Mode" else "Normal Mode"
+            if (notesMode) getString(R.string.gameplay_notes_mode) else getString(R.string.gameplay_normal_mode)
         )
     }
 
     private fun updateTextViews(timerText: String, hintsCount: Int, modeText: String) {
         timerTextView.text = timerText
-        hintsCountTextView.text = "Hints used: $hintsCount"
+        hintsCountTextView.text = getString(R.string.gameplay_numeric_value, hintsCount)
         modeTextView.text = modeText
     }
 
@@ -252,7 +272,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         body.setImageResource(R.drawable.ic_lvl_complete_popup)
 
         val hintsTextView = dialog.findViewById(R.id.hintsUsedTextView) as TextView
-        hintsTextView.text = hintsCountTextView.text
+        hintsTextView.text = getString(
+            R.string.gameplay_hints_used,
+            viewModel.hintsUsed.value ?: 0
+        )
 
         val timeTextView = dialog.findViewById(R.id.totalTimeTextView) as TextView
         timeTextView.text = "Total time: $totalTime"
