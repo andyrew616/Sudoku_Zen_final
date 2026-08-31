@@ -58,9 +58,14 @@
     <dimen name="menu_utility_title_size">15sp</dimen>
     <dimen name="menu_min_touch_target">48dp</dimen>
     <dimen name="menu_body_size">14sp</dimen>
-    <dimen name="menu_difficulty_gap">22dp</dimen>
-    <dimen name="menu_difficulty_tile_height">154dp</dimen>
+    <dimen name="menu_difficulty_gap">18dp</dimen>
+    <dimen name="menu_difficulty_tile_height">160dp</dimen>
+    <dimen name="menu_difficulty_tile_padding">12dp</dimen>
+    <dimen name="menu_difficulty_emblem_size">68dp</dimen>
+    <dimen name="menu_difficulty_emblem_gap">2dp</dimen>
+    <dimen name="menu_difficulty_subtitle_gap">2dp</dimen>
+    <dimen name="menu_medium_tile_end_margin">0dp</dimen>
     <dimen name="menu_hard_tile_start_margin">0dp</dimen>
     <dimen name="menu_hard_tile_top_margin">12dp</dimen>
-    <dimen name="menu_hard_tile_end_margin">6dp</dimen>
+    <dimen name="menu_hard_tile_end_margin">0dp</dimen>
 </resources>

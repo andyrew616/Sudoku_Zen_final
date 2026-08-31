@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:clipToPadding="false"
@@ -22,18 +23,17 @@
             android:background="@drawable/menu_back_background"
             android:contentDescription="@string/menu_back"
             android:minWidth="@dimen/menu_min_touch_target"
-            android:padding="12dp"
+            android:padding="14dp"
             android:scaleType="fitCenter"
-            android:src="@drawable/left_arrow" />
+            android:src="@drawable/left_arrow"
+            app:tint="@color/menu_back_icon" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:fontFamily="sans-serif-light"
             android:text="@string/menu_choose_difficulty"
-            android:textColor="@color/gameplay_ink"
-            android:textSize="@dimen/menu_screen_title_size" />
+            android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.ScreenTitle" />
 
         <TextView
             android:layout_width="match_parent"
@@ -41,8 +41,7 @@
             android:layout_marginTop="4dp"
             android:lineSpacingExtra="2dp"
             android:text="@string/menu_difficulty_intro"
-            android:textColor="@color/gameplay_ink_muted"
-            android:textSize="@dimen/menu_body_size" />
+            android:textAppearance="@style/TextAppearance.ZenSudoku.Menu.Body" />
 
         <GridLayout
             android:layout_width="match_parent"
@@ -58,10 +57,21 @@
                 android:id="@+id/Easy"
                 style="@style/MenuDifficultyTile"
                 android:layout_marginEnd="@dimen/menu_grid_half_gap"
+                android:background="@drawable/menu_difficulty_easy_background"
                 android:contentDescription="@string/easy_mode">
 
-                <TextView style="@style/MenuDifficultyNumber" android:text="01" />
                 <TextView style="@style/MenuDifficultyTitle" android:text="@string/menu_easy" />
+
+                <ImageView
+                    android:layout_width="@dimen/menu_difficulty_emblem_size"
+                    android:layout_height="@dimen/menu_difficulty_emblem_size"
+                    android:layout_marginTop="@dimen/menu_difficulty_emblem_gap"
+                    android:alpha="0.84"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/difficulty_easy_emblem" />
+
                 <TextView style="@style/MenuDifficultySubtitle" android:text="@string/menu_easy_subtitle" />
             </LinearLayout>
 
@@ -69,34 +79,49 @@
                 android:id="@+id/Medium"
                 style="@style/MenuDifficultyTile"
                 android:layout_marginStart="@dimen/menu_grid_half_gap"
+                android:layout_marginEnd="@dimen/menu_medium_tile_end_margin"
+                android:background="@drawable/menu_difficulty_medium_background"
                 android:contentDescription="@string/medium_difficulty">
 
-                <TextView style="@style/MenuDifficultyNumber" android:text="02" />
                 <TextView style="@style/MenuDifficultyTitle" android:text="@string/menu_medium" />
+
+                <ImageView
+                    android:layout_width="@dimen/menu_difficulty_emblem_size"
+                    android:layout_height="@dimen/menu_difficulty_emblem_size"
+                    android:layout_marginTop="@dimen/menu_difficulty_emblem_gap"
+                    android:alpha="0.76"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/difficulty_medium_emblem" />
+
                 <TextView style="@style/MenuDifficultySubtitle" android:text="@string/menu_medium_subtitle" />
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/HardBttn"
                 style="@style/MenuDifficultyTile"
+                android:layout_columnSpan="@integer/menu_difficulty_terminal_span"
                 android:layout_marginStart="@dimen/menu_hard_tile_start_margin"
                 android:layout_marginTop="@dimen/menu_hard_tile_top_margin"
                 android:layout_marginEnd="@dimen/menu_hard_tile_end_margin"
+                android:background="@drawable/menu_difficulty_hard_background"
                 android:contentDescription="@string/hard_difficulty">
 
-                <TextView style="@style/MenuDifficultyNumber" android:text="03" />
                 <TextView style="@style/MenuDifficultyTitle" android:text="@string/menu_hard" />
+
+                <ImageView
+                    android:layout_width="@dimen/menu_difficulty_emblem_size"
+                    android:layout_height="@dimen/menu_difficulty_emblem_size"
+                    android:layout_marginTop="@dimen/menu_difficulty_emblem_gap"
+                    android:alpha="0.76"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/difficulty_hard_emblem" />
+
                 <TextView style="@style/MenuDifficultySubtitle" android:text="@string/menu_hard_subtitle" />
             </LinearLayout>
         </GridLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:gravity="center"
-            android:text="@string/menu_difficulty_hint"
-            android:textColor="@color/gameplay_ink_muted"
-            android:textSize="@dimen/menu_tile_subtitle_size" />
     </LinearLayout>
 </ScrollView>

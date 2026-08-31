@@ -52,12 +52,11 @@
     <string name="menu_disclosure">›</string>
     <string name="menu_back">Back</string>
     <string name="menu_choose_difficulty">Choose your pace</string>
-    <string name="menu_difficulty_intro">Every puzzle has one clear solution. Pick the rhythm that feels right today.</string>
+    <string name="menu_difficulty_intro">Pick the rhythm that feels right today.</string>
     <string name="menu_easy">Easy</string>
     <string name="menu_medium">Medium</string>
     <string name="menu_hard">Hard</string>
     <string name="menu_easy_subtitle">Gentle and spacious</string>
     <string name="menu_medium_subtitle">A balanced challenge</string>
     <string name="menu_hard_subtitle">For deeper focus</string>
-    <string name="menu_difficulty_hint">You can pause and return whenever you like.</string>
 </resources>

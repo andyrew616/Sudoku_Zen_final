@@ -17,40 +17,34 @@
         <item name="android:layout_height">@dimen/menu_difficulty_tile_height</item>
         <item name="android:layout_columnWeight">1</item>
         <item name="android:layout_gravity">fill</item>
-        <item name="android:background">@drawable/menu_difficulty_tile_background</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
-        <item name="android:gravity">start</item>
+        <item name="android:gravity">center</item>
         <item name="android:minWidth">@dimen/menu_min_touch_target</item>
         <item name="android:minHeight">@dimen/menu_min_touch_target</item>
         <item name="android:orientation">vertical</item>
-        <item name="android:padding">16dp</item>
-    </style>
-
-    <style name="MenuDifficultyNumber">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:fontFamily">sans-serif-light</item>
-        <item name="android:letterSpacing">0.08</item>
-        <item name="android:textColor">@color/menu_lavender</item>
-        <item name="android:textSize">26sp</item>
+        <item name="android:padding">@dimen/menu_difficulty_tile_padding</item>
     </style>
 
     <style name="MenuDifficultyTitle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">12dp</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/ubuntu_medium</item>
+        <item name="android:gravity">center</item>
         <item name="android:textColor">@color/gameplay_ink</item>
         <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">normal</item>
     </style>
 
     <style name="MenuDifficultySubtitle">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:layout_marginTop">@dimen/menu_difficulty_subtitle_gap</item>
+        <item name="android:fontFamily">@font/ubuntu_regular</item>
+        <item name="android:gravity">center</item>
         <item name="android:maxLines">2</item>
         <item name="android:textColor">@color/gameplay_ink_muted</item>
         <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">normal</item>
     </style>
 </resources>

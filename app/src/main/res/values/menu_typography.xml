@@ -16,6 +16,20 @@
         <item name="android:textStyle">normal</item>
     </style>
 
+    <style name="TextAppearance.ZenSudoku.Menu.ScreenTitle" parent="TextAppearance.AppCompat.Headline">
+        <item name="android:fontFamily">@font/ubuntu_medium</item>
+        <item name="android:textColor">@color/gameplay_ink</item>
+        <item name="android:textSize">@dimen/menu_screen_title_size</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+
+    <style name="TextAppearance.ZenSudoku.Menu.Body" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:fontFamily">@font/ubuntu_regular</item>
+        <item name="android:textColor">@color/gameplay_ink_muted</item>
+        <item name="android:textSize">@dimen/menu_body_size</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+
     <style name="TextAppearance.ZenSudoku.Menu.Title" parent="TextAppearance.AppCompat.Title">
         <item name="android:fontFamily">@font/ubuntu_medium</item>
         <item name="android:textColor">@color/gameplay_ink</item>
