@@ -119,7 +119,7 @@ class SudokuViewModel(private val context: Context, private var shouldGenerateNe
             if(row == -1 || col == -1){
                 return
             }
-            val solutionValue = _sudokuBoard.value?.solution?.get(row)?.get(col)
+            val solutionValue = _sudokuBoard.value?.solutionValueAt(row, col)
             solutionValue?.let { value ->
                 _sudokuBoard.value = _sudokuBoard.value?.apply {
                     val cell = getCell(row, col).copy(number = value, isHint = true, original_number = value)
@@ -164,4 +164,3 @@ class SudokuViewModel(private val context: Context, private var shouldGenerateNe
     }
 
 }
-

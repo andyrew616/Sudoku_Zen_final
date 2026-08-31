@@ -68,6 +68,47 @@ class SudokuBoard(private val cells: Array<Array<Cell>> = Array(9) { row ->
         }
     }
 
+    fun hasVisibleConflict(row: Int, col: Int): Boolean {
+        if (row !in cells.indices || col !in cells[row].indices) {
+            return false
+        }
+
+        val value = cells[row][col].number
+        if (value == 0) {
+            return false
+        }
+
+        if (cells[row].indices.any { otherCol ->
+                otherCol != col && cells[row][otherCol].number == value
+            }
+        ) {
+            return true
+        }
+
+        if (cells.indices.any { otherRow ->
+                otherRow != row && cells[otherRow][col].number == value
+            }
+        ) {
+            return true
+        }
+
+        val boxStartRow = row / 3 * 3
+        val boxStartCol = col / 3 * 3
+        for (boxRow in boxStartRow until boxStartRow + 3) {
+            for (boxCol in boxStartCol until boxStartCol + 3) {
+                if ((boxRow != row || boxCol != col) && cells[boxRow][boxCol].number == value) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    fun solutionValueAt(row: Int, col: Int): Int? {
+        return solution.getOrNull(row)?.getOrNull(col)
+    }
+
 
     fun isBoardCorrect(): Boolean {
         for (i in cells.indices) {
@@ -82,4 +123,3 @@ class SudokuBoard(private val cells: Array<Array<Cell>> = Array(9) { row ->
 
 
 }
-
