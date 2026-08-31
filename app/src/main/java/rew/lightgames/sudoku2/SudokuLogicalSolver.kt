@@ -55,6 +55,8 @@ class SudokuLogicalSolver {
             ?: findHiddenSubset(grid, 2, SudokuTechnique.HIDDEN_PAIR)
             ?: findNakedSubset(grid, 3, SudokuTechnique.NAKED_TRIPLE)
             ?: findHiddenSubset(grid, 3, SudokuTechnique.HIDDEN_TRIPLE)
+            ?: findXWing(grid)
+            ?: findXYWing(grid)
 
     fun solve(board: IntArray): LogicalSolveResult {
         val creation = CandidateGrid.create(board)
@@ -266,6 +268,111 @@ class SudokuLogicalSolver {
                     actions,
                     StepEvidence.Subset(house, digitSet, cells, hidden = true)
                 )
+            }
+        }
+        return null
+    }
+
+    internal fun findXWing(grid: CandidateGrid): LogicalStep? {
+        for (baseType in listOf(HouseType.ROW, HouseType.COLUMN)) {
+            val coverType = if (baseType == HouseType.ROW) HouseType.COLUMN else HouseType.ROW
+            for (digit in 1..9) {
+                for (firstBaseIndex in 0..7) {
+                    val firstBase = HouseRef(baseType, firstBaseIndex)
+                    val firstPositions = grid.candidatePositions(firstBase, digit)
+                    if (firstPositions.size != 2) continue
+                    val firstCoverIndices = firstPositions.map { cell ->
+                        if (coverType == HouseType.COLUMN) cell.column else cell.row
+                    }
+
+                    for (secondBaseIndex in firstBaseIndex + 1..8) {
+                        val secondBase = HouseRef(baseType, secondBaseIndex)
+                        val secondPositions = grid.candidatePositions(secondBase, digit)
+                        if (secondPositions.size != 2) continue
+                        val secondCoverIndices = secondPositions.map { cell ->
+                            if (coverType == HouseType.COLUMN) cell.column else cell.row
+                        }
+                        if (firstCoverIndices != secondCoverIndices) continue
+
+                        val support = (firstPositions + secondPositions).sorted()
+                        val coverHouses = firstCoverIndices.map { HouseRef(coverType, it) }
+                        val targets = coverHouses
+                            .flatMap { grid.candidatePositions(it, digit) }
+                            .filter { it !in support }
+                            .distinct()
+                            .sorted()
+                        if (targets.isEmpty()) continue
+
+                        return LogicalStep(
+                            SudokuTechnique.X_WING,
+                            targets.map {
+                                SolveAction.EliminateCandidates(it, DigitSet.of(digit))
+                            },
+                            StepEvidence.Fish(
+                                digit = digit,
+                                baseHouses = listOf(firstBase, secondBase),
+                                coverHouses = coverHouses,
+                                cells = support
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    internal fun findXYWing(grid: CandidateGrid): LogicalStep? {
+        for (pivot in grid.cellsRowMajor()) {
+            if (grid.valueAt(pivot) != 0) continue
+            val pivotDigits = grid.candidatesAt(pivot)
+            if (pivotDigits.size != 2) continue
+
+            val possiblePincers = grid.peersOf(pivot).filter { cell ->
+                grid.valueAt(cell) == 0 && grid.candidatesAt(cell).size == 2
+            }
+            for (firstIndex in 0 until possiblePincers.lastIndex) {
+                val first = possiblePincers[firstIndex]
+                val firstCandidates = grid.candidatesAt(first)
+                val firstShared = DigitSet.fromMask(firstCandidates.mask and pivotDigits.mask)
+                if (firstShared.size != 1) continue
+                val firstThird = firstCandidates.remove(pivotDigits)
+                if (firstThird.size != 1) continue
+
+                for (secondIndex in firstIndex + 1 until possiblePincers.size) {
+                    val second = possiblePincers[secondIndex]
+                    val secondCandidates = grid.candidatesAt(second)
+                    val secondShared = DigitSet.fromMask(secondCandidates.mask and pivotDigits.mask)
+                    if (secondShared.size != 1 || secondShared == firstShared) continue
+                    val secondThird = secondCandidates.remove(pivotDigits)
+                    if (secondThird.size != 1 || secondThird != firstThird) continue
+
+                    val eliminationDigit = firstThird.digitsAscending().single()
+                    val support = listOf(pivot, first, second)
+                    val firstPeers = grid.peersOf(first)
+                    val secondPeers = grid.peersOf(second)
+                    val targets = grid.cellsRowMajor().filter { cell ->
+                        cell !in support &&
+                            grid.valueAt(cell) == 0 &&
+                            eliminationDigit in grid.candidatesAt(cell) &&
+                            cell in firstPeers &&
+                            cell in secondPeers
+                    }
+                    if (targets.isEmpty()) continue
+
+                    return LogicalStep(
+                        SudokuTechnique.XY_WING,
+                        targets.map {
+                            SolveAction.EliminateCandidates(it, DigitSet.of(eliminationDigit))
+                        },
+                        StepEvidence.XYWing(
+                            pivot = pivot,
+                            pincers = listOf(first, second),
+                            pivotDigits = pivotDigits,
+                            eliminationDigit = eliminationDigit
+                        )
+                    )
+                }
             }
         }
         return null

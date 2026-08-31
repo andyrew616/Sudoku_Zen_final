@@ -235,24 +235,86 @@ sealed interface StepEvidence {
 
         init {
             DigitSet.requireDigit(digit)
-            require(this.baseHouses.isNotEmpty()) { "Fish evidence requires base houses" }
-            require(this.coverHouses.isNotEmpty()) { "Fish evidence requires cover houses" }
-            require(this.cells.isNotEmpty()) { "Fish evidence requires cells" }
+            require(this.baseHouses.size == 2) { "X-Wing evidence requires two base houses" }
+            require(this.coverHouses.size == 2) { "X-Wing evidence requires two cover houses" }
+            require(this.cells.size == 4) { "X-Wing evidence requires four supporting cells" }
+            require(this.baseHouses.map { it.type }.distinct().size == 1) {
+                "X-Wing base houses must have one type"
+            }
+            require(this.coverHouses.map { it.type }.distinct().size == 1) {
+                "X-Wing cover houses must have one type"
+            }
+            require(this.baseHouses.first().type != this.coverHouses.first().type) {
+                "X-Wing base and cover house types must differ"
+            }
         }
+
+        override fun equals(other: Any?): Boolean =
+            other is Fish &&
+                digit == other.digit &&
+                baseHouses == other.baseHouses &&
+                coverHouses == other.coverHouses &&
+                cells == other.cells
+
+        override fun hashCode(): Int {
+            var result = digit
+            result = 31 * result + baseHouses.hashCode()
+            result = 31 * result + coverHouses.hashCode()
+            result = 31 * result + cells.hashCode()
+            return result
+        }
+
+        override fun toString(): String =
+            "Fish(digit=$digit, baseHouses=$baseHouses, coverHouses=$coverHouses, cells=$cells)"
     }
 
     class XYWing(
         val pivot: CellRef,
-        val firstPincer: CellRef,
-        val secondPincer: CellRef,
-        val digits: DigitSet
+        pincers: Collection<CellRef>,
+        val pivotDigits: DigitSet,
+        val eliminationDigit: Int
     ) : StepEvidence {
+        val pincers: List<CellRef> = immutableSortedDistinct(pincers)
+
         init {
-            require(setOf(pivot, firstPincer, secondPincer).size == 3) {
+            DigitSet.requireDigit(eliminationDigit)
+            require(this.pincers.size == 2) { "XY-Wing evidence requires two pincers" }
+            require(pivot !in this.pincers) {
                 "XY-Wing pivot and pincers must be distinct"
             }
-            require(digits.size == 3) { "XY-Wing evidence must contain exactly three digits" }
+            require(pivotDigits.size == 2) { "XY-Wing pivot must contain exactly two digits" }
+            require(eliminationDigit !in pivotDigits) {
+                "XY-Wing elimination digit must not be a pivot digit"
+            }
         }
+
+        val firstPincer: CellRef
+            get() = pincers[0]
+
+        val secondPincer: CellRef
+            get() = pincers[1]
+
+        val digits: DigitSet
+            get() = pivotDigits.add(eliminationDigit)
+
+        override fun equals(other: Any?): Boolean =
+            other is XYWing &&
+                pivot == other.pivot &&
+                pincers == other.pincers &&
+                pivotDigits == other.pivotDigits &&
+                eliminationDigit == other.eliminationDigit
+
+        override fun hashCode(): Int {
+            var result = pivot.hashCode()
+            result = 31 * result + pincers.hashCode()
+            result = 31 * result + pivotDigits.hashCode()
+            result = 31 * result + eliminationDigit
+            return result
+        }
+
+        override fun toString(): String =
+            "XYWing(pivot=$pivot, pincers=$pincers, pivotDigits=$pivotDigits, " +
+                "eliminationDigit=$eliminationDigit)"
     }
 }
 
