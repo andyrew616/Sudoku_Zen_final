@@ -27,6 +27,7 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.android.material.snackbar.Snackbar
 
 class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedListener, TimerListener {
     companion object {
@@ -62,6 +63,8 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var generationBackButton: Button
     private lateinit var viewModel: SudokuViewModel
     private var gameplayDifficulty: SudokuDifficulty? = null
+    private var hintSnackbar: Snackbar? = null
+    private val hintTextFormatter by lazy { LogicalHintTextFormatter(this) }
 
     private val onBackPressedCallback: OnBackPressedCallback =
         object : OnBackPressedCallback(true) {
@@ -243,6 +246,52 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         viewModel.gameplayLoadState.observe(this) { state ->
             renderGameplayLoadState(state)
         }
+        viewModel.logicalHintResult.observe(this) { result ->
+            renderLogicalHintResult(result)
+        }
+    }
+
+    private fun renderLogicalHintResult(result: LogicalHintResult?) {
+        if (result == null) {
+            sudokuBoardView.setHintHighlights(emptyList())
+            hintSnackbar?.dismiss()
+            hintSnackbar = null
+            return
+        }
+
+        val text = when (result) {
+            is LogicalHintResult.Available -> {
+                sudokuBoardView.setHintHighlights(result.hint.highlights)
+                hintTextFormatter.format(result.hint)
+            }
+            LogicalHintResult.INCORRECT_VALUE_PRESENT -> {
+                sudokuBoardView.setHintHighlights(emptyList())
+                getString(R.string.hint_incorrect_value_present)
+            }
+            LogicalHintResult.INVALID_PLAYER_STATE -> {
+                sudokuBoardView.setHintHighlights(emptyList())
+                getString(R.string.hint_invalid_player_state)
+            }
+            LogicalHintResult.NO_SUPPORTED_LOGICAL_HINT -> {
+                sudokuBoardView.setHintHighlights(emptyList())
+                getString(R.string.hint_no_supported_logical_hint)
+            }
+            LogicalHintResult.SOLVED -> {
+                sudokuBoardView.setHintHighlights(emptyList())
+                getString(R.string.hint_solved)
+            }
+        }
+
+        hintSnackbar?.dismiss()
+        hintSnackbar = Snackbar.make(findViewById(R.id.bg), text, Snackbar.LENGTH_INDEFINITE)
+            .setAnchorView(sudokuControlView)
+            .also { snackbar ->
+                snackbar.view.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+                snackbar.view.findViewById<TextView>(
+                    com.google.android.material.R.id.snackbar_text
+                ).maxLines = 10
+                snackbar.show()
+            }
     }
 
     private fun setupSound() {
@@ -511,6 +560,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     }
 
     override fun onDestroy() {
+        hintSnackbar?.dismiss()
         super.onDestroy()
         timer.destroy()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)

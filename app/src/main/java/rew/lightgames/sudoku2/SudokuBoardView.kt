@@ -25,6 +25,7 @@ class SudokuBoardView @JvmOverloads constructor(
     var selectedRow = -1
     var selectedCol = -1
     var cellSelectedListener: OnCellSelectedListener? = null
+    private var hintHighlights: List<HintHighlight> = emptyList()
 
     private val cells = Array(9) { arrayOfNulls<SudokuCellView>(9) }
     private val thinGridPaint = gridPaint(
@@ -83,6 +84,11 @@ class SudokuBoardView @JvmOverloads constructor(
 
     fun setBoard(board: SudokuBoard?) {
         this.board = board
+        renderAllCells()
+    }
+
+    fun setHintHighlights(highlights: Collection<HintHighlight>) {
+        hintHighlights = highlights.toList()
         renderAllCells()
     }
 
@@ -159,12 +165,22 @@ class SudokuBoardView @JvmOverloads constructor(
                         col == selectedCol ||
                         row / 3 == selectedRow / 3 && col / 3 == selectedCol / 3
                     )
+                val cellHighlights = hintHighlights.filter { it.cell == CellRef(row, col) }
+                val dominantHint = cellHighlights.maxByOrNull { hintPriority(it.role) }
 
                 val backgroundColor = when {
-                    selected -> color(R.color.gameplay_selected_cell)
                     error -> color(R.color.gameplay_error_cell)
+                    dominantHint?.role == HintHighlightRole.ELIMINATION ->
+                        color(R.color.gameplay_hint_cell)
+                    dominantHint?.role == HintHighlightRole.TARGET ->
+                        color(R.color.gameplay_selected_cell)
+                    dominantHint?.role == HintHighlightRole.SUPPORT ->
+                        color(R.color.gameplay_matching_cell)
+                    selected -> color(R.color.gameplay_selected_cell)
                     matching -> color(R.color.gameplay_matching_cell)
                     cell.isHint -> color(R.color.gameplay_hint_cell)
+                    dominantHint?.role == HintHighlightRole.HOUSE ->
+                        color(R.color.gameplay_related_cell)
                     related -> color(R.color.gameplay_related_cell)
                     !cell.isEditable -> color(R.color.gameplay_board_cell_fixed)
                     else -> color(R.color.gameplay_board_cell)
@@ -173,6 +189,7 @@ class SudokuBoardView @JvmOverloads constructor(
                 cells[row][col]?.apply {
                     setCell(cell, error)
                     setBackgroundColor(backgroundColor)
+                    contentDescription = hintContentDescription(row, col, cellHighlights)
                 }
             }
         }
@@ -183,6 +200,51 @@ class SudokuBoardView @JvmOverloads constructor(
         return cell.isEditable &&
             cell.number != 0 &&
             board?.hasVisibleConflict(row, col) == true
+    }
+
+    private fun hintContentDescription(
+        row: Int,
+        column: Int,
+        highlights: List<HintHighlight>
+    ): String? {
+        val dominant = highlights.maxByOrNull { hintPriority(it.role) } ?: return null
+        val digits = highlights
+            .filter { it.role == dominant.role }
+            .mapNotNull { it.digit }
+            .distinct()
+            .sorted()
+            .joinToString(resources.getString(R.string.hint_digit_separator))
+        return when (dominant.role) {
+            HintHighlightRole.TARGET -> resources.getString(
+                R.string.hint_accessibility_target,
+                row + 1,
+                column + 1,
+                digits
+            )
+            HintHighlightRole.ELIMINATION -> resources.getString(
+                R.string.hint_accessibility_elimination,
+                digits,
+                row + 1,
+                column + 1
+            )
+            HintHighlightRole.SUPPORT -> resources.getString(
+                R.string.hint_accessibility_support,
+                row + 1,
+                column + 1
+            )
+            HintHighlightRole.HOUSE -> resources.getString(
+                R.string.hint_accessibility_house,
+                row + 1,
+                column + 1
+            )
+        }
+    }
+
+    private fun hintPriority(role: HintHighlightRole): Int = when (role) {
+        HintHighlightRole.HOUSE -> 0
+        HintHighlightRole.SUPPORT -> 1
+        HintHighlightRole.TARGET -> 2
+        HintHighlightRole.ELIMINATION -> 3
     }
 
     private fun gridPaint(colorRes: Int, widthRes: Int): Paint {

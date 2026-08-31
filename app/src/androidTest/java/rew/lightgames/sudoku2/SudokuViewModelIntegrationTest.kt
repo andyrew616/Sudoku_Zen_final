@@ -16,12 +16,83 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertArrayEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SudokuViewModelIntegrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
+
+    @Test
+    fun logicalHintProgression_needsNoSelectionCountsOnceAndNeverMutatesBoard() {
+        val targeted = targeted(0L, SudokuDifficulty.EASY)
+        val board = GameplaySudokuBoardAdapter.fromTargetedPuzzle(targeted)
+        val before = board.playerValues()
+        lateinit var viewModel: SudokuViewModel
+
+        onMain {
+            viewModel = SudokuViewModel(
+                shouldGenerateNewGame = false,
+                requestedDifficulty = null,
+                puzzleLoader = GameplayPuzzleLoader { _, _ -> error("Must not generate") },
+                seedSource = GameplaySeedSource { error("Must not request a seed") },
+                generationDispatcher = Dispatchers.Default
+            )
+            viewModel.setBoard(board)
+
+            viewModel.provideHint()
+            assertEquals(
+                HintDetailLevel.TECHNIQUE,
+                (viewModel.logicalHintResult.value as LogicalHintResult.Available).hint.detailLevel
+            )
+            viewModel.provideHint()
+            assertEquals(
+                HintDetailLevel.EVIDENCE,
+                (viewModel.logicalHintResult.value as LogicalHintResult.Available).hint.detailLevel
+            )
+            viewModel.provideHint()
+            assertEquals(
+                HintDetailLevel.ACTION,
+                (viewModel.logicalHintResult.value as LogicalHintResult.Available).hint.detailLevel
+            )
+            viewModel.provideHint()
+        }
+
+        assertEquals(1, viewModel.hintsUsed.value)
+        assertArrayEquals(before, requireNotNull(viewModel.sudokuBoard.value).playerValues())
+    }
+
+    @Test
+    fun incorrectPlayerEntry_blocksHintWithoutIdentifyingOrChangingCell() {
+        val targeted = targeted(1L, SudokuDifficulty.EASY)
+        val board = GameplaySudokuBoardAdapter.fromTargetedPuzzle(targeted)
+        val editableIndex = targeted.puzzle.indexOfFirst { it == 0 }
+        val wrongDigit = targeted.solution[editableIndex] % 9 + 1
+        lateinit var viewModel: SudokuViewModel
+
+        onMain {
+            viewModel = SudokuViewModel(
+                shouldGenerateNewGame = false,
+                requestedDifficulty = null,
+                puzzleLoader = GameplayPuzzleLoader { _, _ -> error("Must not generate") },
+                seedSource = GameplaySeedSource { error("Must not request a seed") },
+                generationDispatcher = Dispatchers.Default
+            )
+            viewModel.setBoard(board)
+            viewModel.selectCell(editableIndex / 9, editableIndex % 9)
+            viewModel.updateSelectedCellValue(wrongDigit)
+            viewModel.provideHint()
+        }
+
+        assertEquals(LogicalHintResult.INCORRECT_VALUE_PRESENT, viewModel.logicalHintResult.value)
+        assertEquals(0, viewModel.hintsUsed.value)
+        assertEquals(
+            wrongDigit,
+            requireNotNull(viewModel.sudokuBoard.value)
+                .getCell(editableIndex / 9, editableIndex % 9).number
+        )
+    }
 
     @Test
     fun newGame_invokesExactDifficultyOnceAndGeneratesOffMainThread() {

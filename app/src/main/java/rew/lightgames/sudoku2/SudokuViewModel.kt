@@ -31,7 +31,8 @@ class SudokuViewModel internal constructor(
     private val requestedDifficulty: SudokuDifficulty?,
     private val puzzleLoader: GameplayPuzzleLoader,
     private val seedSource: GameplaySeedSource,
-    private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val logicalHintProvider: LogicalHintProvider = LogicalHintProvider()
 ) : ViewModel() {
 
     constructor(
@@ -54,14 +55,17 @@ class SudokuViewModel internal constructor(
     private val _sudokuBoard = MutableLiveData<SudokuBoard?>()
     private val _hintsUsed = MutableLiveData<Int>(0)
     private val _gameplayLoadState = MutableLiveData<GameplayLoadState>(GameplayLoadState.Idle)
+    private val _logicalHintResult = MutableLiveData<LogicalHintResult?>()
     val sudokuBoard: LiveData<SudokuBoard?> = _sudokuBoard
     val hintsUsed = _hintsUsed
     val gameplayLoadState: LiveData<GameplayLoadState> = _gameplayLoadState
+    val logicalHintResult: LiveData<LogicalHintResult?> = _logicalHintResult
     private var notesMode = false
     private val _selectedCell = MutableLiveData<Pair<Int, Int>>()
     val selectedCell: LiveData<Pair<Int, Int>> = _selectedCell
     private var generationJob: Job? = null
     private var latestRequestId = 0L
+    private val hintProgression = LogicalHintProgression()
 
     init {
         if (shouldGenerateNewGame) {
@@ -72,6 +76,7 @@ class SudokuViewModel internal constructor(
     fun setBoard(board: SudokuBoard) {
         generationJob?.cancel()
         latestRequestId++
+        clearLogicalHint()
         _sudokuBoard.value = board
         _gameplayLoadState.value = GameplayLoadState.Ready(
             requestedDifficulty = requestedDifficulty,
@@ -82,6 +87,7 @@ class SudokuViewModel internal constructor(
     fun reportResumeUnavailable() {
         generationJob?.cancel()
         latestRequestId++
+        clearLogicalHint()
         _sudokuBoard.value = null
         _gameplayLoadState.value = GameplayLoadState.Failure(
             requestedDifficulty = null,
@@ -92,6 +98,7 @@ class SudokuViewModel internal constructor(
     fun reportGenerationInterrupted() {
         generationJob?.cancel()
         latestRequestId++
+        clearLogicalHint()
         _sudokuBoard.value = null
         _gameplayLoadState.value = GameplayLoadState.Failure(
             requestedDifficulty = requestedDifficulty,
@@ -124,7 +131,8 @@ class SudokuViewModel internal constructor(
             } else {
                 _sudokuBoard.value = _sudokuBoard.value?.apply {
                     val currentCell = getCell(row, col)
-                    if (currentCell.isEditable) {
+                    if (currentCell.isEditable && currentCell.number != value) {
+                        clearLogicalHint()
                         val newCell = currentCell.copy(number = value, original_number = 0)
                         setCell(row, col, newCell)
                         Log.d("SudokuViewModel", "Number button clicked: $value")
@@ -166,6 +174,7 @@ class SudokuViewModel internal constructor(
         generationJob?.cancel()
         val requestId = ++latestRequestId
         val seed = seedSource.nextSeed()
+        clearLogicalHint()
         _hintsUsed.value = 0
         _selectedCell.value = Pair(-1, -1)
         _sudokuBoard.value = null
@@ -224,22 +233,22 @@ class SudokuViewModel internal constructor(
     }
 
     fun provideHint() {
-        _selectedCell.value?.let { (row, col) ->
-            if(row == -1 || col == -1){
-                return
+        val board = _sudokuBoard.value ?: return
+        val playerValues = board.playerValues()
+        val progression = hintProgression.advance(playerValues)
+        val result = logicalHintProvider.hintFor(
+            playerValues = playerValues,
+            authoritativeSolution = board.solutionValues(),
+            detailLevel = progression.detailLevel
+        )
+        if (result is LogicalHintResult.Available) {
+            if (progression.startsSequence) {
+                _hintsUsed.value = (_hintsUsed.value ?: 0) + 1
             }
-            val solutionValue = _sudokuBoard.value?.solutionValueAt(row, col)
-            solutionValue?.let { value ->
-                _sudokuBoard.value = _sudokuBoard.value?.apply {
-                    val cell = getCell(row, col).copy(number = value, isHint = true, original_number = value)
-                    setCell(row, col, cell)
-                    Log.d("SudokuViewModel", "Hint provided for cell ($row, $col): $value")
-                    _hintsUsed.value = _hintsUsed.value?.plus(1)
-                }
-                //deselectCell()
-            }
+        } else {
+            hintProgression.reset()
         }
-        //deselectCell() // Deselect the cell after providing a hint
+        _logicalHintResult.value = result
     }
 
     private fun deselectCell() {
@@ -270,6 +279,11 @@ class SudokuViewModel internal constructor(
 
     fun isBoardCorrect(): Boolean {
         return sudokuBoard.value?.isBoardCorrect() ?: false
+    }
+
+    private fun clearLogicalHint() {
+        hintProgression.reset()
+        _logicalHintResult.value = null
     }
 
     companion object {

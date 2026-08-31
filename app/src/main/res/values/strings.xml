@@ -63,4 +63,47 @@
     <string name="gameplay_generation_failed">A correctly graded puzzle could not be loaded.</string>
     <string name="gameplay_retry_generation">Retry</string>
     <string name="gameplay_back_to_menu">Back to menu</string>
+
+    <!-- Progressive logical hints. Prose remains in Android resources, not the solver. -->
+    <string name="hint_technique_prompt">Technique: %1$s. Tap Hint again to see why.</string>
+    <string name="hint_evidence_prompt">%1$s Tap Hint again for the exact action.</string>
+    <string name="hint_action_prompt">%1$s %2$s</string>
+    <string name="hint_technique_naked_single">Naked single</string>
+    <string name="hint_technique_hidden_single">Hidden single</string>
+    <string name="hint_technique_pointing">Pointing candidates</string>
+    <string name="hint_technique_claiming">Claiming candidates</string>
+    <string name="hint_technique_naked_pair">Naked pair</string>
+    <string name="hint_technique_hidden_pair">Hidden pair</string>
+    <string name="hint_technique_naked_triple">Naked triple</string>
+    <string name="hint_technique_hidden_triple">Hidden triple</string>
+    <string name="hint_technique_x_wing">X-Wing</string>
+    <string name="hint_technique_xy_wing">XY-Wing</string>
+    <string name="hint_technique_skyscraper">Skyscraper</string>
+    <string name="hint_technique_two_string_kite">Two-string kite</string>
+    <string name="hint_evidence_naked_single">%1$s has only one legal candidate.</string>
+    <string name="hint_evidence_hidden_single">%1$s is the only possible cell for one digit in %2$s.</string>
+    <string name="hint_evidence_pointing">Within %1$s, one candidate is confined to %2$s. Supporting cells: %3$s.</string>
+    <string name="hint_evidence_claiming">Within %1$s, one candidate is confined to %2$s. Supporting cells: %3$s.</string>
+    <string name="hint_evidence_subset">A %1$s using %2$s is formed in %3$s by %4$s.</string>
+    <string name="hint_evidence_x_wing">Four supports connect %1$s with %2$s: %3$s.</string>
+    <string name="hint_evidence_xy_wing">Pivot %1$s links the two pincer cells %2$s.</string>
+    <string name="hint_evidence_skyscraper">The aligned supports %1$s connect the two tower cells %2$s.</string>
+    <string name="hint_evidence_two_string_kite">A row and column connect through %1$s, with outer endpoints %2$s.</string>
+    <string name="hint_action_place">Place %1$d in %2$s.</string>
+    <string name="hint_action_eliminate">Remove %1$s from %2$s.</string>
+    <string name="hint_action_separator"> </string>
+    <string name="hint_list_separator">; </string>
+    <string name="hint_digit_separator">, </string>
+    <string name="hint_cell">row %1$d, column %2$d</string>
+    <string name="hint_house_row">row %1$d</string>
+    <string name="hint_house_column">column %1$d</string>
+    <string name="hint_house_box">box %1$d</string>
+    <string name="hint_incorrect_value_present">Review your entries before asking for a hint. At least one entered value is incorrect.</string>
+    <string name="hint_invalid_player_state">This board is contradictory, so no logical hint is safe.</string>
+    <string name="hint_no_supported_logical_hint">No supported logical step is available from the current board.</string>
+    <string name="hint_solved">This puzzle is already solved.</string>
+    <string name="hint_accessibility_target">Hint target at row %1$d, column %2$d: place %3$s</string>
+    <string name="hint_accessibility_elimination">Remove candidate %1$s at row %2$d, column %3$d</string>
+    <string name="hint_accessibility_support">Hint support at row %1$d, column %2$d</string>
+    <string name="hint_accessibility_house">Hint region at row %1$d, column %2$d</string>
 </resources>

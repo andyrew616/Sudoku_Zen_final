@@ -2,6 +2,9 @@ package rew.lightgames.sudoku2
 
 import android.content.Intent
 import android.os.SystemClock
+import android.widget.TextView
+import com.google.android.material.snackbar.Snackbar
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.navigation.fragment.NavHostFragment
@@ -17,6 +20,106 @@ import org.junit.runner.RunWith
 class PhysicalDeviceGameplaySmokeTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val targetContext = instrumentation.targetContext
+
+    @Test
+    fun progressiveEasyHint_rendersLocalizedTextAndAccessibleActionHighlightsWithoutMutation() {
+        val activity = launch(SudokuDifficulty.EASY)
+        val viewModel = viewModel(activity)
+        try {
+            waitUntilReady(viewModel)
+            val before = requireNotNull(viewModel.sudokuBoard.value).playerValues()
+
+            onMain { viewModel.provideHint() }
+            val technique = (viewModel.logicalHintResult.value as LogicalHintResult.Available).hint
+            assertEquals(HintDetailLevel.TECHNIQUE, technique.detailLevel)
+            assertEquals(
+                LogicalHintTextFormatter(activity).format(technique),
+                waitForSnackbarText(activity)
+            )
+
+            onMain { viewModel.provideHint() }
+            instrumentation.waitForIdleSync()
+            val evidence = (viewModel.logicalHintResult.value as LogicalHintResult.Available).hint
+            assertEquals(HintDetailLevel.EVIDENCE, evidence.detailLevel)
+            assertTrue(evidence.highlights.isNotEmpty())
+
+            onMain { viewModel.provideHint() }
+            val action = (viewModel.logicalHintResult.value as LogicalHintResult.Available).hint
+            assertEquals(HintDetailLevel.ACTION, action.detailLevel)
+            assertEquals(
+                LogicalHintTextFormatter(activity).format(action),
+                waitForSnackbarText(activity)
+            )
+            val boardView = activity.findViewById<SudokuBoardView>(R.id.sudokuBoardView)
+            action.targetCells.forEach { target ->
+                val description = boardView.getCellView(target.row, target.column)
+                    ?.contentDescription
+                    ?.toString()
+                assertTrue(
+                    "Missing accessible target description for $target",
+                    !description.isNullOrBlank()
+                )
+            }
+
+            assertEquals(1, viewModel.hintsUsed.value)
+            assertTrue(before.contentEquals(requireNotNull(viewModel.sudokuBoard.value).playerValues()))
+        } finally {
+            close(activity)
+        }
+    }
+
+    @Test
+    fun logicalHintLatencyAndTechniqueCoverage_onPhysicalDevice() {
+        val fallback = CompactFallbackPuzzleProvider {
+            targetContext.assets.open(GRADED_FALLBACK_ASSET)
+                .bufferedReader()
+                .use { it.readText() }
+        }
+        val puzzleProvider = GameplayPuzzleProvider(fallback)
+        val nextNanos = ArrayList<Long>()
+        val mappingNanos = ArrayList<Long>()
+
+        playableDifficulties.forEachIndexed { index, difficulty ->
+            val loaded = puzzleProvider.createPuzzle(difficulty, 90_000L + index)
+            assertTrue(loaded is PuzzleLoadResult.Ready)
+            loaded as PuzzleLoadResult.Ready
+            val puzzle = loaded.board.playerValues()
+            val grid = (CandidateGrid.create(puzzle) as CandidateGridCreationResult.Success).grid
+            val solver = SudokuLogicalSolver()
+            val mapper = LogicalHintMapper()
+            val techniques = LinkedHashSet<SudokuTechnique>()
+
+            while (grid.snapshot().values.any { it == 0 }) {
+                val nextStarted = SystemClock.elapsedRealtimeNanos()
+                val step = requireNotNull(solver.nextStep(grid))
+                nextNanos += SystemClock.elapsedRealtimeNanos() - nextStarted
+                val mappingStarted = SystemClock.elapsedRealtimeNanos()
+                val hint = mapper.map(step, HintDetailLevel.ACTION)
+                mappingNanos += SystemClock.elapsedRealtimeNanos() - mappingStarted
+                assertEquals(step.actions, hint.actions)
+                assertEquals(CandidateGridMutationResult.Success, grid.applyActions(step.actions))
+                techniques += step.technique
+            }
+
+            when (difficulty) {
+                SudokuDifficulty.EASY -> assertTrue(techniques.isNotEmpty())
+                // A Medium rating may come from cumulative score without a Medium-tier step.
+                // Medium techniques are exercised by the controlled all-technique device fixture.
+                SudokuDifficulty.MEDIUM -> assertTrue(techniques.isNotEmpty())
+                SudokuDifficulty.HARD -> assertTrue(techniques.any { it in HARD_TECHNIQUES })
+                SudokuDifficulty.UNSUPPORTED -> error("Not playable")
+            }
+        }
+
+        val nextP95 = percentileMillis(nextNanos)
+        val mappingP95 = percentileMillis(mappingNanos)
+        println(
+            "PR11 DEVICE HINT PERFORMANCE nextP95Ms=${decimal(nextP95)} " +
+                "mappingP95Ms=${decimal(mappingP95)} samples=${nextNanos.size}"
+        )
+        assertTrue("Device next-step p95 exceeded 50 ms", nextP95 < 50.0)
+        assertTrue("Device hint-mapping p95 exceeded 50 ms", mappingP95 < 50.0)
+    }
 
     @Test
     fun easyMediumAndHard_launchPlayableBoardsAndSavedBoardResumesExactly() {
@@ -62,7 +165,7 @@ class PhysicalDeviceGameplaySmokeTest {
             originalViewModel.selectCell(notedCell.first, notedCell.second)
             originalViewModel.toggleNotesMode()
             originalViewModel.updateSelectedCellValue(3)
-            originalViewModel.setHintsUsed(2)
+            originalViewModel.provideHint()
         }
         val expectedBoard = requireNotNull(originalViewModel.sudokuBoard.value).copy()
         onMain { activity.finish() }
@@ -76,7 +179,7 @@ class PhysicalDeviceGameplaySmokeTest {
             GameplayLoadState.Ready(SudokuDifficulty.EASY, GameplayPuzzleSource.RESUMED),
             resumedState
         )
-        assertEquals(2, resumedViewModel.hintsUsed.value)
+        assertEquals(1, resumedViewModel.hintsUsed.value)
         val restoredBoard = requireNotNull(resumedViewModel.sudokuBoard.value)
         assertBoardsExactlyEqual(expectedBoard, restoredBoard)
         auditBoard(resumedViewModel, SudokuDifficulty.EASY)
@@ -147,7 +250,9 @@ class PhysicalDeviceGameplaySmokeTest {
                 GameplayDifficultyAdapter.INTENT_EXTRA,
                 GameplayDifficultyAdapter.toExternalValue(difficulty)
             )
-        return instrumentation.startActivitySync(intent) as MainActivity
+        return (instrumentation.startActivitySync(intent) as MainActivity).also {
+            waitUntilResumed(it)
+        }
     }
 
     private fun launchResume(): MainActivity {
@@ -201,6 +306,33 @@ class PhysicalDeviceGameplaySmokeTest {
         return field.get(activity) as SudokuViewModel
     }
 
+    private fun waitForSnackbarText(activity: MainActivity): String {
+        val field = MainActivity::class.java.getDeclaredField("hintSnackbar")
+        field.isAccessible = true
+        val deadline = SystemClock.elapsedRealtime() + 3_000L
+        while (SystemClock.elapsedRealtime() < deadline) {
+            instrumentation.waitForIdleSync()
+            val snackbar = field.get(activity) as Snackbar?
+            if (snackbar != null) {
+                return snackbar.view.findViewById<TextView>(
+                    com.google.android.material.R.id.snackbar_text
+                ).text.toString()
+            }
+            Thread.sleep(20L)
+        }
+        error("Hint snackbar was not rendered; lifecycle=${activity.lifecycle.currentState}")
+    }
+
+    private fun waitUntilResumed(activity: MainActivity) {
+        val deadline = SystemClock.elapsedRealtime() + 3_000L
+        while (SystemClock.elapsedRealtime() < deadline) {
+            instrumentation.waitForIdleSync()
+            if (activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+            Thread.sleep(20L)
+        }
+        error("Activity did not resume: ${activity.lifecycle.currentState}")
+    }
+
     private fun close(activity: MainActivity) {
         onMain { activity.finish() }
         instrumentation.waitForIdleSync()
@@ -213,11 +345,26 @@ class PhysicalDeviceGameplaySmokeTest {
     private fun millis(nanos: Long): String =
         String.format(Locale.US, "%.3f", nanos / 1_000_000.0)
 
+    private fun percentileMillis(values: List<Long>): Double {
+        val sorted = values.sorted()
+        return sorted[((sorted.size - 1) * 0.95).toInt()] / 1_000_000.0
+    }
+
+    private fun decimal(value: Double): String = String.format(Locale.US, "%.3f", value)
+
     private companion object {
         val playableDifficulties = listOf(
             SudokuDifficulty.EASY,
             SudokuDifficulty.MEDIUM,
             SudokuDifficulty.HARD
+        )
+        val HARD_TECHNIQUES = setOf(
+            SudokuTechnique.NAKED_TRIPLE,
+            SudokuTechnique.HIDDEN_TRIPLE,
+            SudokuTechnique.X_WING,
+            SudokuTechnique.XY_WING,
+            SudokuTechnique.SKYSCRAPER,
+            SudokuTechnique.TWO_STRING_KITE
         )
     }
 }
