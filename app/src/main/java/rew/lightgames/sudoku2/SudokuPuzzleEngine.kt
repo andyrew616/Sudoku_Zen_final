@@ -40,15 +40,16 @@ class SudokuPuzzleEngine(private val seed: Long = System.currentTimeMillis()) {
     }
 
     fun countSolutions(board: IntArray, limit: Int = 2): Int {
+        if (limit <= 0) return 0
         try {
             validateBoard(board)
         } catch (e: IllegalArgumentException) {
             return 0
         }
-        var count = 0
         val grid = board.clone()
-        countSolutionsMRV(grid, limit) { count++ }
-        return count
+        val solutionCount = intArrayOf(0)
+        countSolutionsMRV(grid, limit, solutionCount = solutionCount)
+        return solutionCount[0]
     }
 
     fun solve(board: IntArray): IntArray? {
@@ -162,10 +163,14 @@ class SudokuPuzzleEngine(private val seed: Long = System.currentTimeMillis()) {
     // --- Internal solution counter (no validation, no clone) ---
 
     private fun countSolutionsInternal(board: IntArray, limit: Int): Int {
-        var count = 0
         val grid = board.clone()
-        countSolutionsMRV(grid, limit) { count++ }
-        return count
+        val solutionCount = intArrayOf(0)
+        countSolutionsMRV(
+            grid = grid,
+            limit = limit,
+            solutionCount = solutionCount
+        )
+        return solutionCount[0]
     }
 
     // --- MRV-based solution counter ---
@@ -173,12 +178,12 @@ class SudokuPuzzleEngine(private val seed: Long = System.currentTimeMillis()) {
     private fun countSolutionsMRV(
         grid: IntArray,
         limit: Int,
-        onSolution: () -> Unit
+        solutionCount: IntArray
     ): Boolean {
         val pos = findBestEmptyCell(grid)
         if (pos == -1) {
-            onSolution()
-            return false
+            solutionCount[0]++
+            return solutionCount[0] >= limit
         }
 
         val row = pos / SIZE
@@ -187,7 +192,8 @@ class SudokuPuzzleEngine(private val seed: Long = System.currentTimeMillis()) {
 
         for (digit in candidates) {
             grid[pos] = digit
-            if (countSolutionsMRV(grid, limit, onSolution)) {
+            if (countSolutionsMRV(grid, limit, solutionCount)) {
+                grid[pos] = 0
                 return true
             }
             grid[pos] = 0
