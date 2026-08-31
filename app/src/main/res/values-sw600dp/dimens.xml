@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <dimen name="menu_difficulty_tile_height">174dp</dimen>
+    <dimen name="menu_difficulty_emblem_size">82dp</dimen>
+    <dimen name="menu_medium_tile_end_margin">6dp</dimen>
     <dimen name="menu_hard_tile_start_margin">6dp</dimen>
     <dimen name="menu_hard_tile_top_margin">0dp</dimen>
     <dimen name="menu_hard_tile_end_margin">0dp</dimen>

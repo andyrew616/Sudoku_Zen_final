@@ -4,4 +4,6 @@
     <dimen name="menu_screen_inset">20dp</dimen>
     <dimen name="menu_play_tile_height">202dp</dimen>
     <dimen name="menu_play_icon_size">106dp</dimen>
+    <dimen name="menu_difficulty_tile_height">166dp</dimen>
+    <dimen name="menu_difficulty_emblem_size">74dp</dimen>
 </resources>
