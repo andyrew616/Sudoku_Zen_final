@@ -4,4 +4,32 @@
     <dimen name="cell_size">40dp</dimen>
     <dimen name="thick_separator_width">4dp</dimen>
     <dimen name="thin_separator_width">1dp</dimen>
+
+    <!-- Gameplay screen spacing and sizing. -->
+    <dimen name="gameplay_horizontal_inset">32dp</dimen>
+    <dimen name="gameplay_section_gap">2dp</dimen>
+    <dimen name="gameplay_header_height">48dp</dimen>
+    <dimen name="gameplay_header_radius">14dp</dimen>
+    <dimen name="gameplay_header_horizontal_padding">10dp</dimen>
+    <dimen name="gameplay_pause_size">48dp</dimen>
+    <dimen name="gameplay_board_radius">5dp</dimen>
+    <dimen name="gameplay_board_elevation">3dp</dimen>
+    <dimen name="gameplay_grid_line_width">0.55dp</dimen>
+    <dimen name="gameplay_grid_box_width">1.6dp</dimen>
+    <dimen name="gameplay_grid_outer_width">2dp</dimen>
+    <dimen name="gameplay_utility_height">48dp</dimen>
+    <dimen name="gameplay_utility_radius">15dp</dimen>
+    <dimen name="gameplay_utility_icon_size">21dp</dimen>
+    <dimen name="gameplay_utility_gap">4dp</dimen>
+    <dimen name="gameplay_utility_divider_width">1dp</dimen>
+    <dimen name="gameplay_number_grid_min_height">156dp</dimen>
+    <dimen name="gameplay_number_grid_max_height">192dp</dimen>
+    <dimen name="gameplay_number_key_gap">2dp</dimen>
+    <dimen name="gameplay_header_eyebrow_size">8sp</dimen>
+    <dimen name="gameplay_header_value_size">16sp</dimen>
+    <dimen name="gameplay_mode_text_size">12sp</dimen>
+    <dimen name="gameplay_mode_dot_size">7dp</dimen>
+    <dimen name="gameplay_number_text_size">24sp</dimen>
+    <dimen name="gameplay_number_key_radius">10dp</dimen>
+    <dimen name="gameplay_number_key_stroke_width">0.5dp</dimen>
 </resources>

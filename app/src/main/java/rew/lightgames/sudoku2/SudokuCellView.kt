@@ -2,121 +2,91 @@ package rew.lightgames.sudoku2
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.Typeface
 import android.util.AttributeSet
-import android.util.Log
 import android.view.View
+import androidx.core.content.ContextCompat
 import kotlin.math.ceil
-import kotlin.math.floor
-
 
 class SudokuCellView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
-    private val textSize: Float = resources.getDimension(R.dimen.cell_text_size)
 
     private var cell: Cell? = null
-    fun setCell(cell: Cell) {
+    private var error = false
+    private var fallbackText = ""
+    private var fallbackNotes: Collection<Int> = emptyList()
+
+    private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        textAlign = Paint.Align.CENTER
+    }
+    private val notesPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+    }
+
+    fun setCell(cell: Cell, isError: Boolean = false) {
         this.cell = cell
-        invalidate() // Redraw the view
-    }
-    private val notePaint = Paint().apply {
-        style = Paint.Style.FILL_AND_STROKE
-        color = Color.BLACK
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.DEFAULT_BOLD
-        isAntiAlias = true
-        textSize = 90f
-    }
-
-    private val notesPaint = Paint().apply {
-        style = Paint.Style.FILL_AND_STROKE
-        color = Color.BLACK
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.DEFAULT_BOLD
-        isAntiAlias = true
-        textSize = 1f
-    }
-
-
-    init {
-
-        notePaint.textSize = textSize
-        notePaint.color = Color.BLACK
-
-        notesPaint.textSize = textSize / 3f // Set the notes text size smaller
-        notesPaint.color = Color.BLACK
-
-        setBackgroundColor(Color.WHITE)
-        bringToFront()
-    }
-
-
-    private var cellText: String = ""
-    val number = cellText.trim().toIntOrNull()
-    fun setText(text: String) {
-        cellText = text
-        cell?.number = text.trim().toIntOrNull() ?: 0
-        invalidate() // Redraw the view
-    }
-    private var notesText: String = ""
-    fun setNotes(text: String){
-        notesText = text
+        error = isError
         invalidate()
     }
 
+    fun setText(text: String) {
+        fallbackText = text
+        invalidate()
+    }
+
+    fun setNotes(notes: Collection<Int>) {
+        fallbackNotes = notes
+        invalidate()
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-
-
-        if(cellText != "0"){
-            drawNumber(canvas)
+        val value = cell?.number ?: fallbackText.trim().toIntOrNull() ?: 0
+        if (value == 0) {
+            drawNotes(canvas, cell?.notes ?: fallbackNotes)
         } else {
-            drawCellNotes(canvas)
+            drawNumber(canvas, value)
         }
-
-
-
     }
 
-    private fun drawCellNotes(canvas: Canvas?) {
+    private fun drawNumber(canvas: Canvas, value: Int) {
+        val currentCell = cell
+        numberPaint.apply {
+            textSize = width * 0.58f
+            typeface = if (currentCell?.isEditable == false) {
+                Typeface.create("sans-serif", Typeface.BOLD)
+            } else {
+                Typeface.create("sans-serif", Typeface.NORMAL)
+            }
+            color = when {
+                error -> color(R.color.gameplay_error_ink)
+                currentCell?.isHint == true -> color(R.color.gameplay_ink_muted)
+                currentCell?.isEditable == false -> color(R.color.gameplay_ink)
+                else -> color(R.color.gameplay_player_value)
+            }
+        }
+        val baseline = height / 2f - (numberPaint.descent() + numberPaint.ascent()) / 2f
+        canvas.drawText(value.toString(), width / 2f, baseline, numberPaint)
+    }
 
-        val cellSize = width / 3f // adjust this value to match your needs
-        val numRowsCols = 3
-        notesPaint.textSize = cellSize * 0.8f // Adjust the size based on your preference
-        notesText.forEach { charNote ->
-            val note = charNote.toString().toIntOrNull() // Convert Char to Int
-            if (note != null) {
-                val row = ceil(note / numRowsCols.toDouble()).toInt() - 1
-                val col = (note - 1) % numRowsCols
-                val centerX = col * cellSize + cellSize / 2
-                val centerY = row * cellSize + cellSize / 2 - (notesPaint.descent() + notesPaint.ascent()) / 2
-                canvas?.drawText(note.toString(), centerX, centerY, notesPaint)
+    private fun drawNotes(canvas: Canvas, notes: Collection<Int>) {
+        val noteCellSize = width / 3f
+        notesPaint.textSize = noteCellSize * 0.58f
+        notesPaint.color = color(R.color.gameplay_player_value)
+        notes.forEach { note ->
+            if (note in 1..9) {
+                val row = ceil(note / 3.0).toInt() - 1
+                val col = (note - 1) % 3
+                val centerX = col * noteCellSize + noteCellSize / 2f
+                val centerY = row * noteCellSize + noteCellSize / 2f -
+                    (notesPaint.descent() + notesPaint.ascent()) / 2f
+                canvas.drawText(note.toString(), centerX, centerY, notesPaint)
             }
         }
     }
 
-
-
-
-
-    private fun drawNumber(canvas: Canvas) {
-        val textSize = width * 0.8f // Adjust the size based on your preference
-        notePaint.textSize = textSize
-
-        // Calculate the position for the number in the cell
-        val textX = width / 2f
-        val textY = height / 2f - (notePaint.descent() + notePaint.ascent()) / 2
-
-        // Check if cellText is a valid integer
-        if (cellText.trim().isNotEmpty()) {
-            // Draw the number
-            canvas.drawText(cellText, textX, textY, notePaint)
-        }
-    }
-
+    private fun color(colorRes: Int): Int = ContextCompat.getColor(context, colorRes)
 }
-
-
