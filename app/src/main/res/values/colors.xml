@@ -29,5 +29,31 @@
     <color name="cell_text_original">#9E9E9E</color>
     <color name="separator">#000000</color>
 
+    <!-- Gameplay refresh: restrained, watercolour-compatible visual tokens. -->
+    <color name="gameplay_ink">#292638</color>
+    <color name="gameplay_ink_muted">#746F83</color>
+    <color name="gameplay_player_value">#675D91</color>
+    <color name="gameplay_surface">#A8FFFFFF</color>
+    <color name="gameplay_surface_border">#D9FFFFFF</color>
+    <color name="gameplay_number_key_surface">#78FFFDF9</color>
+    <color name="gameplay_number_key_border">#24474257</color>
+    <color name="gameplay_mode_surface">#B8E2DDF0</color>
+    <color name="gameplay_mode_ink">#514B68</color>
+    <color name="gameplay_board_cell">#E6FFFDF9</color>
+    <color name="gameplay_board_cell_fixed">#ECFFFDF9</color>
+    <color name="gameplay_related_cell">#4FDAD4EE</color>
+    <color name="gameplay_matching_cell">#85BEB5DE</color>
+    <color name="gameplay_selected_cell">#F2E8C675</color>
+    <color name="gameplay_hint_cell">#E8DCEBD9</color>
+    <color name="gameplay_error_cell">#F2F1D2CF</color>
+    <color name="gameplay_error_ink">#9D4D52</color>
+    <color name="gameplay_grid_line">#29474257</color>
+    <color name="gameplay_grid_box_line">#8A393447</color>
+    <color name="gameplay_grid_outer_line">#B8393447</color>
+    <color name="gameplay_lavender_soft">#5CDAD4EE</color>
+    <color name="gameplay_gold">#E3BB6D</color>
+    <color name="gameplay_gold_soft">#57E3BB6D</color>
+    <color name="gameplay_divider">#1F4E4760</color>
+
 
 </resources>

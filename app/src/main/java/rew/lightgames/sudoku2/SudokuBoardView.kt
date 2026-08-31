@@ -1,26 +1,16 @@
 package rew.lightgames.sudoku2
 
 import android.content.Context
-import android.graphics.Color
+import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Typeface
-import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.LayerDrawable
 import android.util.AttributeSet
-import android.view.View
-import android.widget.GridLayout
-import kotlin.random.Random
-import android.graphics.drawable.ShapeDrawable
-import android.graphics.drawable.shapes.RectShape
+import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.widget.FrameLayout
-private const val originalColour = "#80ac97e8"
-private const val blueColour = "#808f8d8d"
-private const val whiteColour = "#80FFFFFF"
-private val greenColor = Color.parseColor("#A080D480") // Adjust the color as desired
-private val grayBorderColor = Color.parseColor("#808080")
-private val highlightColor = Color.parseColor("#AA673AB7")
-private val orangeColor = Color.parseColor("#A0FFA500")
+import android.widget.GridLayout
+import androidx.core.content.ContextCompat
+
 interface OnCellSelectedListener {
     fun onCellSelected(row: Int, col: Int)
 }
@@ -31,301 +21,177 @@ class SudokuBoardView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
-    val displayMetrics = resources.displayMetrics
-    val screenWidth = displayMetrics.widthPixels
-    val screenHeight = displayMetrics.heightPixels
-    val textSize = screenWidth * 0.015f // 1.5% of screen width
-
     private var board: SudokuBoard? = null
     var selectedRow = -1
     var selectedCol = -1
     var cellSelectedListener: OnCellSelectedListener? = null
 
-    private val BORDER_WIDTH = 2
-    private val THICK_BORDER_WIDTH = 5
-    private val cells = Array(9) { arrayOfNulls<SudokuCellView>(9)
-    }
+    private val cells = Array(9) { arrayOfNulls<SudokuCellView>(9) }
+    private val thinGridPaint = gridPaint(
+        R.color.gameplay_grid_line,
+        R.dimen.gameplay_grid_line_width
+    )
+    private val boxGridPaint = gridPaint(
+        R.color.gameplay_grid_box_line,
+        R.dimen.gameplay_grid_box_width
+    )
+    private val outerGridPaint = gridPaint(
+        R.color.gameplay_grid_outer_line,
+        R.dimen.gameplay_grid_outer_width
+    )
 
     init {
-
-
-        val random = Random
+        setWillNotDraw(false)
+        clipToOutline = true
 
         val gridLayout = GridLayout(context).apply {
             id = View.generateViewId()
             columnCount = 9
             rowCount = 9
-            layoutParams = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT
-            )
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         }
-        ShapeDrawable(RectShape()).apply {
-            paint.color = grayBorderColor
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = BORDER_WIDTH.toFloat()
-        }
-
-        val displayMetrics = resources.displayMetrics
-        val screenWidthDp = displayMetrics.widthPixels / displayMetrics.density
-
         addView(gridLayout)
 
-        for (i in 0..80) {
-            val row = i / 9
-            val col = i % 9
-            val boxRow = row / 3
-            val boxCol = col / 3
-
-            val randomNumber = random.nextInt(9) + 1
-
-            val sudokuCellView = SudokuCellView(context, null).apply {
+        for (index in 0 until 81) {
+            val row = index / 9
+            val col = index % 9
+            val cellView = SudokuCellView(context, null).apply {
                 id = View.generateViewId()
-
-                // Set the background color and border
-                val strokeWidth =
-                    if (row % 3 == 2 || col % 3 == 2) THICK_BORDER_WIDTH else BORDER_WIDTH
-                val boxRow = row / 3
-                val boxCol = col / 3
-                val backgroundColor = if ((boxRow + boxCol) % 2 == 0) {
-                    Color.parseColor(blueColour)
-                } else {
-                    Color.parseColor(whiteColour)
-                }
-                background = createCellBackground(backgroundColor, row, col)
-
-                // Set the layout parameters for the GridLayout
                 layoutParams = GridLayout.LayoutParams().apply {
-                    width = (screenWidthDp / 9 * displayMetrics.density).toInt()
-                    height = (screenWidthDp / 9 * displayMetrics.density).toInt()
-                    columnSpec = GridLayout.spec(col, 1f) // set the column and row spec
-                    rowSpec = GridLayout.spec(row, 1f)
+                    width = 0
+                    height = 0
+                    columnSpec = GridLayout.spec(col, GridLayout.FILL, 1f)
+                    rowSpec = GridLayout.spec(row, GridLayout.FILL, 1f)
+                    setGravity(Gravity.FILL)
                 }
-
-
-                cells[row][col] = this
-                setText(randomNumber.toString())
+                setBackgroundColor(color(R.color.gameplay_board_cell))
             }
-
-            gridLayout.addView(sudokuCellView)
-            gridLayout.bringChildToFront(sudokuCellView)
-            //gridLayout.bringToFront()
-            sudokuCellView.setText(randomNumber.toString())
-            setCellBorder()
+            cells[row][col] = cellView
+            gridLayout.addView(cellView)
         }
     }
 
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, widthMeasureSpec)
-    }
-    // Add this function to get the SudokuCellView at the specified row and col
     fun getCellView(row: Int, col: Int): SudokuCellView? {
-        return if (row in 0..8 && col in 0..8) {
-            cells[row][col]
-        } else {
-            null
-        }
+        return if (row in 0..8 && col in 0..8) cells[row][col] else null
     }
-
-
 
     fun highlightRowColBox(row: Int, col: Int) {
-        val boxRow = row / 3 * 3
-        val boxCol = col / 3 * 3
-
-        for (i in 0..8) {
-            for (j in 0..8) {
-                if (i != row || j != col) {
-                    val cell = board?.getCell(i, j)
-                    val editText = cells[i][j]
-                    val boxRowTemp = i / 3 * 3
-                    val boxColTemp = j / 3 * 3
-                    val backgroundColor = if ((boxRowTemp + boxColTemp) % 2 == 0) {
-                        Color.parseColor(blueColour)
-                    } else {
-                        Color.parseColor(whiteColour)
-                    }
-
-                    val strokeWidth =
-                        if (i % 3 == 2 || j % 3 == 2) THICK_BORDER_WIDTH else BORDER_WIDTH
-
-                    if (i == row || j == col || (i >= boxRow && i < boxRow + 3 && j >= boxCol && j < boxCol + 3)) {
-                        if (cell?.isHint == true) {
-                            editText?.background = createCellBackground(greenColor, row,col)
-                        } else if (cell?.isEditable != true) {
-                            editText?.background =
-                                createCellBackground(Color.parseColor(originalColour), row,col)
-                        } else {
-                            editText?.background = createCellBackground(highlightColor, row,col)
-                        }
-                    } else {
-                        if (cell?.isHint == true) {
-                            editText?.background = createCellBackground(greenColor, row,col)
-                        } else if (cell?.isEditable != true) {
-                            editText?.background =
-                                createCellBackground(Color.parseColor(originalColour), row,col)
-                        } else {
-                            editText?.background =
-                                createCellBackground(backgroundColor, row,col)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Set the selected cell's color to orange
-        cells[row][col]?.background = createCellBackground(orangeColor, row,col)
+        selectedRow = row
+        selectedCol = col
+        renderAllCells()
     }
 
     fun setBoard(board: SudokuBoard?) {
         this.board = board
-        board?.let { newBoard ->
-            for (i in 0..8) {
-                for (j in 0..8) {
-                    val cell = newBoard.getCell(i, j)
-                    if (cell.number != 0) {
-                        // Set background color for original numbers
-                        if (!cell.isEditable) {
-                            updateCellBackground(i, j)
-                        }
-                    } else {
-                        cells[i][j]?.setCell(cell)
-                    }
-
-                    // Set background color for hint cells
-                    updateCellBackground(i, j)
-                    cells[i][j]?.setText(cell.number.toString())
-                    // Add this line to update the notes
-                    updateNotes(i, j, cell.notes)
-                }
-            }
-        }
-        invalidate()
+        renderAllCells()
     }
-    // SudokuBoardView.kt
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_DOWN) {
-            val cellWidth = width / 9f
-            val cellHeight = height / 9f
 
-            val col = (event.x / cellWidth).toInt()
-            val row = (event.y / cellHeight).toInt()
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_DOWN && width > 0 && height > 0) {
+            val col = (event.x / (width / 9f)).toInt().coerceIn(0, 8)
+            val row = (event.y / (height / 9f)).toInt().coerceIn(0, 8)
             if (board?.getCell(row, col)?.isEditable == true) {
                 selectedRow = row
                 selectedCol = col
                 cellSelectedListener?.onCellSelected(row, col)
-                highlightRowColBox(row, col)
-
-                val cell = board?.getCell(row, col) ?: Cell(
-                    isEditable = false,
-                    number = 0,
-                    original_number = 0
-                )
-                updateSelectedCell(row, col, cell)
-
-                invalidate() // Redraw the view
-
-                // Bring the view to the front
-                bringToFront()
-                cells[row][col]?.bringToFront()
+                renderAllCells()
+                invalidate()
             }
+        } else if (event.action == MotionEvent.ACTION_UP) {
+            performClick()
         }
+        return true
+    }
 
+    override fun performClick(): Boolean {
+        super.performClick()
         return true
     }
 
     fun updateSelectedCell(row: Int, col: Int, cell: Cell) {
         if (row in 0..8 && col in 0..8) {
-            cells[row][col]?.apply {
-
-                if (cell.number == 0) {
-                    updateNotes(row, col, cell.notes)
-                } else {
-                    setText(cell.number.toString())
-                }
-                updateCellBackground(row, col)
-            }
+            cells[row][col]?.setCell(cell, isError(row, col, cell))
+            renderAllCells()
         }
     }
 
-
-
-    private fun createCellBackground(backgroundColor: Int, row: Int, col: Int): LayerDrawable {
-        val border = ShapeDrawable(RectShape()).apply {
-            paint.color = grayBorderColor
-            paint.style = Paint.Style.STROKE
-            // Use thicker border for outer cells and thinner border for inner cells
-            paint.strokeWidth = if (row % 3 == 0 || col % 3 == 0 || row == 8 || col == 8) THICK_BORDER_WIDTH.toFloat() else BORDER_WIDTH.toFloat()
-        }
-        return LayerDrawable(arrayOf(border, ColorDrawable(backgroundColor)))
-    }
-
-
-    private fun setCellBorder() {
-        for (i in 0..8) {
-            for (j in 0..8) {
-                val row = i / 9
-                val col = i % 9
-                val boxRow = row / 3
-                val boxCol = col / 3
-                val strokeWidth = BORDER_WIDTH
-                val thickStrokeWidth = if (row % 3 == 0 || col % 3 == 0 || row == 8 || col == 8) THICK_BORDER_WIDTH else 0
-
-                val backgroundColor = if ((boxRow + boxCol) % 2 == 0) {
-                    Color.parseColor(blueColour)
-                } else {
-                    Color.parseColor(whiteColour)
-                }
-                cells[i][j]?.background = createCellBackground(backgroundColor, row,col)
-            }
-        }
-    }
-
-
-    private fun updateCellBackground(row: Int, col: Int) {
-        val cell =
-            board?.getCell(row, col) ?: Cell(isEditable = false, number = 0, original_number = 0)
-        val strokeWidth = if (row % 3 == 2 || col % 3 == 2) THICK_BORDER_WIDTH else BORDER_WIDTH
-        val boxRow = row / 3
-        val boxCol = col / 3
-        val backgroundColor = if ((boxRow + boxCol) % 2 == 0) {
-            Color.parseColor(blueColour)
-        } else {
-            Color.parseColor(whiteColour)
-        }
-
-        if (row == selectedRow && col == selectedCol) {
-            cells[row][col]?.background = createCellBackground(orangeColor, row,col)
-        } else if (cell.isHint) {
-            cells[row][col]?.background = createCellBackground(greenColor, row,col)
-        } else if (!cell.isEditable) {
-            cells[row][col]?.background =
-                createCellBackground(Color.parseColor(originalColour), row,col)
-        } else {
-            cells[row][col]?.background = createCellBackground(backgroundColor, row,col)
-        }
-    }
     fun updateNotes(row: Int, col: Int, notes: ArrayList<Int>) {
-        val notesString = StringBuilder()
-        for (i in 1..9) {
-            if (notes.contains(i)) {
-                notesString.append(i)
-            } else {
-                notesString.append(" ")
-            }
-            if (i % 3 == 0 && i != 9) {
-                notesString.append("\n")
-            }
+        if (row in 0..8 && col in 0..8) {
+            cells[row][col]?.setNotes(notes)
         }
-        cells[row][col]?.setNotes(notesString.toString())
     }
 
     fun invalidateAllCells() {
-        for (row in 0 until 9) {
-            for (col in 0 until 9) {
+        renderAllCells()
+    }
 
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+
+        val cellWidth = width / 9f
+        val cellHeight = height / 9f
+        for (line in 1 until 9) {
+            val paint = if (line % 3 == 0) boxGridPaint else thinGridPaint
+            canvas.drawLine(line * cellWidth, 0f, line * cellWidth, height.toFloat(), paint)
+            canvas.drawLine(0f, line * cellHeight, width.toFloat(), line * cellHeight, paint)
+        }
+
+        val inset = outerGridPaint.strokeWidth / 2f
+        canvas.drawRect(inset, inset, width - inset, height - inset, outerGridPaint)
+    }
+
+    private fun renderAllCells() {
+        val currentBoard = board ?: return
+        val selectedValue = if (selectedRow in 0..8 && selectedCol in 0..8) {
+            currentBoard.getCell(selectedRow, selectedCol).number
+        } else {
+            0
+        }
+
+        for (row in 0..8) {
+            for (col in 0..8) {
+                val cell = currentBoard.getCell(row, col)
+                val error = isError(row, col, cell)
+                val selected = row == selectedRow && col == selectedCol
+                val matching = !selected && selectedValue != 0 && cell.number == selectedValue
+                val related = !selected && selectedRow in 0..8 && selectedCol in 0..8 && (
+                    row == selectedRow ||
+                        col == selectedCol ||
+                        row / 3 == selectedRow / 3 && col / 3 == selectedCol / 3
+                    )
+
+                val backgroundColor = when {
+                    selected -> color(R.color.gameplay_selected_cell)
+                    error -> color(R.color.gameplay_error_cell)
+                    matching -> color(R.color.gameplay_matching_cell)
+                    cell.isHint -> color(R.color.gameplay_hint_cell)
+                    related -> color(R.color.gameplay_related_cell)
+                    !cell.isEditable -> color(R.color.gameplay_board_cell_fixed)
+                    else -> color(R.color.gameplay_board_cell)
+                }
+
+                cells[row][col]?.apply {
+                    setCell(cell, error)
+                    setBackgroundColor(backgroundColor)
+                }
             }
+        }
+        invalidate()
+    }
+
+    private fun isError(row: Int, col: Int, cell: Cell): Boolean {
+        return cell.isEditable &&
+            cell.number != 0 &&
+            board?.solution?.getOrNull(row)?.getOrNull(col) != cell.number
+    }
+
+    private fun gridPaint(colorRes: Int, widthRes: Int): Paint {
+        return Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = color(colorRes)
+            style = Paint.Style.STROKE
+            strokeWidth = resources.getDimension(widthRes)
         }
     }
 
+    private fun color(colorRes: Int): Int = ContextCompat.getColor(context, colorRes)
 }

@@ -31,4 +31,16 @@
     <string name="privacy_settings">Privacy Settings</string>
     <string name="resume_game">Resume Game</string>
     <string name="options">Options</string>
+    <string name="gameplay_normal_mode">Normal Mode</string>
+    <string name="gameplay_notes_mode">Notes Mode</string>
+    <string name="gameplay_hints_used">Hints used: %1$d</string>
+    <string name="gameplay_notes">Notes</string>
+    <string name="gameplay_hint">Hint</string>
+    <string name="gameplay_erase">Erase</string>
+    <string name="gameplay_number_key">Enter %1$d</string>
+    <string name="gameplay_time_label">TIME</string>
+    <string name="gameplay_hints_label">HINTS</string>
+    <string name="gameplay_timer_zero">00:00</string>
+    <string name="gameplay_zero">0</string>
+    <string name="gameplay_numeric_value">%1$d</string>
 </resources>
