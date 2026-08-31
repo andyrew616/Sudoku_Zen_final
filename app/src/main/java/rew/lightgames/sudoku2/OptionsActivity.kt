@@ -33,11 +33,16 @@ class OptionsActivity : AppCompatActivity() {
 
         val musicSwitch: SwitchCompat = findViewById(R.id.musicSwitch)
         val soundEffectsSwitch: SwitchCompat = findViewById(R.id.soundEffectsSwitch)
+        val autoNotesSwitch: SwitchCompat = findViewById(R.id.autoNotesSwitch)
 
 
         // Set initial state of UI elements
         musicSwitch.isChecked = sharedPreferences.getBoolean("music", true)
         soundEffectsSwitch.isChecked = sharedPreferences.getBoolean("sound_effects", true)
+        autoNotesSwitch.isChecked = sharedPreferences.getBoolean(
+            MainActivity.PREF_AUTO_NOTES,
+            false
+        )
 
 
         // Save new state when it changes
@@ -47,6 +52,12 @@ class OptionsActivity : AppCompatActivity() {
 
         soundEffectsSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit().putBoolean("sound_effects", isChecked).apply()
+        }
+
+        autoNotesSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit()
+                .putBoolean(MainActivity.PREF_AUTO_NOTES, isChecked)
+                .apply()
         }
 
         val privacyRow = findViewById<View>(R.id.privacyOptionsRow)

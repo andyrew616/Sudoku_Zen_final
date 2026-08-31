@@ -95,6 +95,47 @@ class SudokuViewModelIntegrationTest {
     }
 
     @Test
+    fun manualNotesMode_preservesToggleAndValueRestorationBehavior() {
+        val targeted = targeted(2L, SudokuDifficulty.EASY)
+        val board = GameplaySudokuBoardAdapter.fromTargetedPuzzle(targeted)
+        val editableIndex = targeted.puzzle.indexOfFirst { it == 0 }
+        val row = editableIndex / 9
+        val column = editableIndex % 9
+        lateinit var viewModel: SudokuViewModel
+
+        onMain {
+            viewModel = SudokuViewModel(
+                shouldGenerateNewGame = false,
+                requestedDifficulty = null,
+                puzzleLoader = GameplayPuzzleLoader { _, _ -> error("Must not generate") },
+                seedSource = GameplaySeedSource { error("Must not request a seed") },
+                generationDispatcher = Dispatchers.Default
+            )
+            viewModel.setBoard(board)
+            viewModel.selectCell(row, column)
+            viewModel.setNotesMode(true)
+            viewModel.updateSelectedCellValue(2)
+            viewModel.updateSelectedCellValue(7)
+        }
+
+        assertEquals(listOf(2, 7), board.getCell(row, column).notes.sorted())
+
+        onMain { viewModel.updateSelectedCellValue(2) }
+        assertEquals(listOf(7), board.getCell(row, column).notes)
+
+        onMain {
+            viewModel.setNotesMode(false)
+            viewModel.updateSelectedCellValue(targeted.solution[editableIndex])
+        }
+        assertEquals(targeted.solution[editableIndex], board.getCell(row, column).number)
+        assertEquals(listOf(7), board.getCell(row, column).notes)
+
+        onMain { viewModel.updateSelectedCellValue(0) }
+        assertEquals(0, board.getCell(row, column).number)
+        assertEquals(listOf(7), board.getCell(row, column).notes)
+    }
+
+    @Test
     fun newGame_invokesExactDifficultyOnceAndGeneratesOffMainThread() {
         val calls = AtomicInteger()
         val calledOnMain = AtomicBoolean(true)
@@ -120,7 +161,7 @@ class SudokuViewModelIntegrationTest {
         }
 
         assertTrue(completed.await(10, TimeUnit.SECONDS))
-        instrumentation.waitForIdleSync()
+        waitUntil(10_000L) { viewModel.gameplayLoadState.value is GameplayLoadState.Ready }
         assertEquals(1, calls.get())
         assertFalse("target generation must not run on main", calledOnMain.get())
         assertTrue(viewModel.gameplayLoadState.value is GameplayLoadState.Ready)
@@ -215,7 +256,7 @@ class SudokuViewModelIntegrationTest {
         }
 
         assertTrue(completed.await(10, TimeUnit.SECONDS))
-        instrumentation.waitForIdleSync()
+        waitUntil(10_000L) { viewModel.gameplayLoadState.value is GameplayLoadState.Failure }
         assertEquals(null, viewModel.sudokuBoard.value)
         assertEquals(
             GameplayLoadState.Failure(
@@ -294,7 +335,7 @@ class SudokuViewModelIntegrationTest {
         assertTrue(firstStarted.await(10, TimeUnit.SECONDS))
         onMain { viewModel.loadNextPuzzle() }
         assertTrue(secondCompleted.await(10, TimeUnit.SECONDS))
-        instrumentation.waitForIdleSync()
+        waitUntil(10_000L) { viewModel.sudokuBoard.value != null }
         releaseFirst.countDown()
         instrumentation.waitForIdleSync()
 
@@ -325,5 +366,15 @@ class SudokuViewModelIntegrationTest {
 
     private fun onMain(block: () -> Unit) {
         instrumentation.runOnMainSync(block)
+    }
+
+    private fun waitUntil(timeoutMillis: Long, condition: () -> Boolean) {
+        val deadline = android.os.SystemClock.elapsedRealtime() + timeoutMillis
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            instrumentation.waitForIdleSync()
+            if (condition()) return
+            Thread.sleep(20L)
+        }
+        assertTrue("Condition was not met within ${timeoutMillis}ms", condition())
     }
 }

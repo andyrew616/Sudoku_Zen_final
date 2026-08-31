@@ -117,6 +117,10 @@ class SudokuBoard(private val cells: Array<Array<Cell>> = Array(9) { row ->
         solution[index / 9][index % 9]
     }
 
+    fun editableCells(): BooleanArray = BooleanArray(81) { index ->
+        cells[index / 9][index % 9].isEditable
+    }
+
 
     fun isBoardCorrect(): Boolean {
         for (i in cells.indices) {

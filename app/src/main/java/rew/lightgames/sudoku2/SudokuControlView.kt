@@ -11,6 +11,7 @@ import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
@@ -40,6 +41,7 @@ class SudokuControlView @JvmOverloads constructor(
         resources.getDimensionPixelSize(R.dimen.gameplay_number_grid_max_height)
     private var reclaimedBottomSpace = 0
     private lateinit var notesAction: LinearLayout
+    private var autoNotesEnabled = false
 
     init {
         val content = LinearLayout(context).apply {
@@ -69,6 +71,14 @@ class SudokuControlView @JvmOverloads constructor(
             R.drawable.ic_gameplay_notes,
             R.string.gameplay_notes
         ) {
+            if (autoNotesEnabled) {
+                Toast.makeText(
+                    context,
+                    R.string.gameplay_manual_notes_unavailable,
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@createUtilityAction
+            }
             notesMode = !notesMode
             notesAction.isSelected = notesMode
             listener?.onNotesModeChanged(notesMode)
@@ -104,6 +114,22 @@ class SudokuControlView @JvmOverloads constructor(
         content.addView(utilityRail)
         content.addView(numberGrid)
         addView(content)
+    }
+
+    fun setAutoNotesEnabled(enabled: Boolean) {
+        autoNotesEnabled = enabled
+        if (enabled) {
+            notesMode = false
+            notesAction.isSelected = false
+        }
+        notesAction.alpha = if (enabled) 0.55f else 1f
+        notesAction.contentDescription = context.getString(
+            if (enabled) {
+                R.string.gameplay_manual_notes_unavailable
+            } else {
+                R.string.gameplay_notes
+            }
+        )
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

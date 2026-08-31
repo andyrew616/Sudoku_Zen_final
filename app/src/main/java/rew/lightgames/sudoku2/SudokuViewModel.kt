@@ -255,7 +255,11 @@ class SudokuViewModel internal constructor(
         _selectedCell.value = Pair(-1, -1)
     }
     fun toggleNotesMode() {
-        notesMode = !notesMode
+        setNotesMode(!notesMode)
+    }
+
+    fun setNotesMode(enabled: Boolean) {
+        notesMode = enabled
     }
 
     fun addNoteToSelectedCell(value: Int) {

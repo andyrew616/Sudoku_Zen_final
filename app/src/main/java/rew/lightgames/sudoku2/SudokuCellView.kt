@@ -15,6 +15,7 @@ class SudokuCellView(context: Context, attrs: AttributeSet?) : View(context, att
     private var error = false
     private var fallbackText = ""
     private var fallbackNotes: Collection<Int> = emptyList()
+    private var presentedNotes: Collection<Int>? = null
 
     private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -26,9 +27,14 @@ class SudokuCellView(context: Context, attrs: AttributeSet?) : View(context, att
         typeface = Typeface.create("sans-serif", Typeface.NORMAL)
     }
 
-    fun setCell(cell: Cell, isError: Boolean = false) {
+    fun setCell(
+        cell: Cell,
+        isError: Boolean = false,
+        presentedNotes: Collection<Int>? = null
+    ) {
         this.cell = cell
         error = isError
+        this.presentedNotes = presentedNotes?.toList()
         invalidate()
     }
 
@@ -46,7 +52,7 @@ class SudokuCellView(context: Context, attrs: AttributeSet?) : View(context, att
         super.onDraw(canvas)
         val value = cell?.number ?: fallbackText.trim().toIntOrNull() ?: 0
         if (value == 0) {
-            drawNotes(canvas, cell?.notes ?: fallbackNotes)
+            drawNotes(canvas, presentedNotes ?: cell?.notes ?: fallbackNotes)
         } else {
             drawNumber(canvas, value)
         }

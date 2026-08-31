@@ -26,6 +26,7 @@ class SudokuBoardView @JvmOverloads constructor(
     var selectedCol = -1
     var cellSelectedListener: OnCellSelectedListener? = null
     private var hintHighlights: List<HintHighlight> = emptyList()
+    private var autoNotes: AutoNotesResult? = null
 
     private val cells = Array(9) { arrayOfNulls<SudokuCellView>(9) }
     private val thinGridPaint = gridPaint(
@@ -89,6 +90,11 @@ class SudokuBoardView @JvmOverloads constructor(
 
     fun setHintHighlights(highlights: Collection<HintHighlight>) {
         hintHighlights = highlights.toList()
+        renderAllCells()
+    }
+
+    fun setAutoNotes(result: AutoNotesResult?) {
+        autoNotes = result
         renderAllCells()
     }
 
@@ -167,6 +173,11 @@ class SudokuBoardView @JvmOverloads constructor(
                     )
                 val cellHighlights = hintHighlights.filter { it.cell == CellRef(row, col) }
                 val dominantHint = cellHighlights.maxByOrNull { hintPriority(it.role) }
+                val presentedNotes = when (val result = autoNotes) {
+                    is AutoNotesResult.Available -> result.candidatesAt(row, col)
+                    AutoNotesResult.InvalidBoard -> emptyList()
+                    null -> null
+                }
 
                 val backgroundColor = when {
                     error -> color(R.color.gameplay_error_cell)
@@ -187,9 +198,10 @@ class SudokuBoardView @JvmOverloads constructor(
                 }
 
                 cells[row][col]?.apply {
-                    setCell(cell, error)
+                    setCell(cell, error, presentedNotes)
                     setBackgroundColor(backgroundColor)
                     contentDescription = hintContentDescription(row, col, cellHighlights)
+                        ?: notesContentDescription(row, col, cell, presentedNotes)
                 }
             }
         }
@@ -245,6 +257,42 @@ class SudokuBoardView @JvmOverloads constructor(
         HintHighlightRole.SUPPORT -> 1
         HintHighlightRole.TARGET -> 2
         HintHighlightRole.ELIMINATION -> 3
+    }
+
+    private fun notesContentDescription(
+        row: Int,
+        column: Int,
+        cell: Cell,
+        presentedNotes: Collection<Int>?
+    ): String? {
+        if (!cell.isEditable || cell.number != 0) return null
+        if (autoNotes == null) {
+            val visibleNotes = cell.notes.filter { it in 1..9 }.distinct().sorted()
+            if (visibleNotes.isEmpty()) return null
+            return resources.getString(
+                R.string.manual_notes_accessibility_candidates,
+                row + 1,
+                column + 1,
+                visibleNotes.joinToString(
+                    resources.getString(R.string.hint_digit_separator)
+                )
+            )
+        }
+        if (autoNotes == AutoNotesResult.InvalidBoard) {
+            return resources.getString(
+                R.string.auto_notes_accessibility_unavailable,
+                row + 1,
+                column + 1
+            )
+        }
+        return resources.getString(
+            R.string.auto_notes_accessibility_candidates,
+            row + 1,
+            column + 1,
+            presentedNotes.orEmpty().joinToString(
+                resources.getString(R.string.hint_digit_separator)
+            )
+        )
     }
 
     private fun gridPaint(colorRes: Int, widthRes: Int): Paint {

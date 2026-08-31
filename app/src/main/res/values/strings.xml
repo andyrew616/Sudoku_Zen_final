@@ -33,8 +33,10 @@
     <string name="options">Options</string>
     <string name="gameplay_normal_mode">Normal Mode</string>
     <string name="gameplay_notes_mode">Notes Mode</string>
+    <string name="gameplay_auto_notes_mode">Auto Notes</string>
     <string name="gameplay_hints_used">Hints used: %1$d</string>
     <string name="gameplay_notes">Notes</string>
+    <string name="gameplay_manual_notes_unavailable">Manual Notes are unavailable while Auto Notes is enabled</string>
     <string name="gameplay_hint">Hint</string>
     <string name="gameplay_erase">Erase</string>
     <string name="gameplay_number_key">Enter %1$d</string>
@@ -63,6 +65,12 @@
     <string name="gameplay_generation_failed">A correctly graded puzzle could not be loaded.</string>
     <string name="gameplay_retry_generation">Retry</string>
     <string name="gameplay_back_to_menu">Back to menu</string>
+    <string name="settings_auto_notes">Auto Notes</string>
+    <string name="settings_auto_notes_description">Show legal candidates automatically. Manual Notes pause while this is on.</string>
+    <string name="settings_auto_notes_accessibility">Auto Notes candidate assistance</string>
+    <string name="auto_notes_accessibility_candidates">Row %1$d, column %2$d. Automatic candidates: %3$s</string>
+    <string name="auto_notes_accessibility_unavailable">Row %1$d, column %2$d. Automatic candidates are unavailable because the board is contradictory.</string>
+    <string name="manual_notes_accessibility_candidates">Row %1$d, column %2$d. Manual notes: %3$s</string>
 
     <!-- Progressive logical hints. Prose remains in Android resources, not the solver. -->
     <string name="hint_technique_prompt">Technique: %1$s. Tap Hint again to see why.</string>

@@ -32,6 +32,7 @@ import com.google.android.material.snackbar.Snackbar
 class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedListener, TimerListener {
     companion object {
         const val PREF_NAME = "my_preferences"
+        const val PREF_AUTO_NOTES = "auto_notes"
         private const val PREF_SOUND_EFFECTS = "sound_effects"
         private const val PREF_SAVED_GAME = "saved_game"
         private const val PREF_SAVED_DIFFICULTY = "saved_game_difficulty"
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     var soundId: Int? = null
     private var previouslySelectedCell: SudokuCellView? = null
     private var notesMode = false
+    private var autoNotesEnabled = false
     private var soundEffectsOn: Boolean = false
     private var hintCount = 0
     private lateinit var currentTime: String
@@ -64,6 +66,9 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var viewModel: SudokuViewModel
     private var gameplayDifficulty: SudokuDifficulty? = null
     private var hintSnackbar: Snackbar? = null
+    private var lastAutoNotesBoard: SudokuBoard? = null
+    private var lastAutoNotesValues: IntArray? = null
+    private var lastAutoNotesEditableCells: BooleanArray? = null
     private val hintTextFormatter by lazy { LogicalHintTextFormatter(this) }
 
     private val onBackPressedCallback: OnBackPressedCallback =
@@ -76,8 +81,16 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         }
 
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == PREF_SOUND_EFFECTS) {
-            soundEffectsOn = sharedPreferences.getBoolean(PREF_SOUND_EFFECTS, true)
+        when (key) {
+            PREF_SOUND_EFFECTS -> {
+                soundEffectsOn = sharedPreferences.getBoolean(PREF_SOUND_EFFECTS, true)
+            }
+            PREF_AUTO_NOTES -> {
+                applyAutoNotesPreference(
+                    sharedPreferences.getBoolean(PREF_AUTO_NOTES, false),
+                    forceRecompute = true
+                )
+            }
         }
     }
 
@@ -233,6 +246,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         generationBackButton.setOnClickListener {
             exit()
         }
+        applyAutoNotesPreference(autoNotesEnabled, forceRecompute = false)
     }
 
     private fun setupViewModel() {
@@ -302,11 +316,13 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private fun setupSharedPreferences() {
         sharedPreferences = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         soundEffectsOn = sharedPreferences.getBoolean(PREF_SOUND_EFFECTS, true)
+        autoNotesEnabled = sharedPreferences.getBoolean(PREF_AUTO_NOTES, false)
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
     }
 
     private fun handleBoardUpdate(board: SudokuBoard?) {
         sudokuBoardView.setBoard(board)
+        updateAutoNotes(board)
         if (board == null) return
         viewModel.selectedCell.value?.let { cell ->
             if (cell.first !in 0..8 || cell.second !in 0..8) return@let
@@ -365,7 +381,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         updateTextViews(
             timerText,
             viewModel.hintsUsed.value ?: 0,
-            if (notesMode) getString(R.string.gameplay_notes_mode) else getString(R.string.gameplay_normal_mode)
+            gameplayModeText()
         )
     }
 
@@ -376,8 +392,8 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     }
 
     override fun onNotesModeChanged(notesMode: Boolean) {
-        this.notesMode = notesMode
-        viewModel.toggleNotesMode()
+        this.notesMode = notesMode && !autoNotesEnabled
+        viewModel.setNotesMode(this.notesMode)
         playSound()
     }
 
@@ -554,10 +570,66 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
     override fun onResume() {
         super.onResume()
+        val preferenceEnabled = sharedPreferences.getBoolean(PREF_AUTO_NOTES, false)
+        if (preferenceEnabled != autoNotesEnabled) {
+            applyAutoNotesPreference(preferenceEnabled, forceRecompute = true)
+        }
         if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
             timer.start()
         }
     }
+
+    private fun applyAutoNotesPreference(enabled: Boolean, forceRecompute: Boolean) {
+        autoNotesEnabled = enabled
+        if (enabled) {
+            notesMode = false
+            if (::viewModel.isInitialized) {
+                viewModel.setNotesMode(false)
+            }
+        }
+        if (::sudokuControlView.isInitialized) {
+            sudokuControlView.setAutoNotesEnabled(enabled)
+        }
+        if (::modeTextView.isInitialized) {
+            modeTextView.text = gameplayModeText()
+        }
+        if (::sudokuBoardView.isInitialized) {
+            updateAutoNotes(
+                if (::viewModel.isInitialized) viewModel.sudokuBoard.value else null,
+                forceRecompute
+            )
+        }
+    }
+
+    private fun updateAutoNotes(board: SudokuBoard?, forceRecompute: Boolean = false) {
+        if (!autoNotesEnabled || board == null) {
+            lastAutoNotesBoard = null
+            lastAutoNotesValues = null
+            lastAutoNotesEditableCells = null
+            sudokuBoardView.setAutoNotes(null)
+            return
+        }
+
+        val values = board.playerValues()
+        val editableCells = board.editableCells()
+        val unchanged = lastAutoNotesBoard === board &&
+            lastAutoNotesValues?.contentEquals(values) == true &&
+            lastAutoNotesEditableCells?.contentEquals(editableCells) == true
+        if (!forceRecompute && unchanged) return
+
+        lastAutoNotesBoard = board
+        lastAutoNotesValues = values.copyOf()
+        lastAutoNotesEditableCells = editableCells.copyOf()
+        sudokuBoardView.setAutoNotes(AutoNotesCalculator.compute(values, editableCells))
+    }
+
+    private fun gameplayModeText(): String = getString(
+        when {
+            autoNotesEnabled -> R.string.gameplay_auto_notes_mode
+            notesMode -> R.string.gameplay_notes_mode
+            else -> R.string.gameplay_normal_mode
+        }
+    )
 
     override fun onDestroy() {
         hintSnackbar?.dismiss()
