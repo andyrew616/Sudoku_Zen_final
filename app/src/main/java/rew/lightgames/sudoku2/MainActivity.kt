@@ -10,12 +10,14 @@ import android.media.SoundPool
 import android.os.Build
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.method.ScrollingMovementMethod
 import android.text.style.StyleSpan
 import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
@@ -23,6 +25,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.widget.NestedScrollView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
@@ -41,6 +44,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.snackbar.BaseTransientBottomBar
+import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedListener, TimerListener {
     companion object {
@@ -68,6 +73,8 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var timer: Timer
     private lateinit var sudokuControlView: SudokuControlView
     private lateinit var sudokuBoardView: SudokuBoardView
+    private lateinit var gameplayScroll: NestedScrollView
+    private lateinit var gameplayContent: View
     private lateinit var timerTextView: TextView
     private lateinit var hintsCountTextView: TextView
     private lateinit var modeTextView: TextView
@@ -82,6 +89,11 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var viewModel: SudokuViewModel
     private var gameplayDifficulty: SudokuDifficulty? = null
     private var hintSnackbar: Snackbar? = null
+    private var gameplayContentBaseBottomPadding = 0
+    private var hintScrollPosition = 0
+    private var hintReflowActive = false
+    private var hintSnackbarShown = false
+    private var hintRootCorrection = 0f
     private var pauseDialog: Dialog? = null
     private var completionDialog: Dialog? = null
     private var lastAutoNotesBoard: SudokuBoard? = null
@@ -250,6 +262,9 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private fun setupViews() {
         sudokuBoardView = findViewById(R.id.sudokuBoardView)
         sudokuControlView = findViewById(R.id.sudokuControlView)
+        gameplayScroll = findViewById(R.id.gameplayScroll)
+        gameplayContent = findViewById(R.id.gameplayContent)
+        gameplayContentBaseBottomPadding = gameplayContent.paddingBottom
         timerTextView = findViewById(R.id.timerTextView)
         hintsCountTextView = findViewById(R.id.hintsCountTextView)
         modeTextView = findViewById(R.id.modeTextView)
@@ -300,6 +315,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             sudokuBoardView.setHintHighlights(emptyList())
             hintSnackbar?.dismiss()
             hintSnackbar = null
+            clearHintReflow()
             return
         }
 
@@ -326,7 +342,11 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             }
         }
 
-        hintSnackbar?.dismiss()
+        val previousHintSnackbar = hintSnackbar
+        hintSnackbar = null
+        previousHintSnackbar?.dismiss()
+        hintSnackbarShown = false
+        hintRootCorrection = 0f
         hintSnackbar = Snackbar.make(findViewById(R.id.bg), text, Snackbar.LENGTH_INDEFINITE)
             .setAnchorView(adView)
             .setAction(R.string.gameplay_hint_dismiss) {
@@ -340,18 +360,22 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                     R.drawable.gameplay_hint_snackbar
                 )
                 snackbarView.elevation = resources.getDimension(R.dimen.gameplay_board_elevation)
-                snackbarView.setPadding(dp(4), dp(28), dp(4), dp(4))
+                snackbarView.setPadding(dp(4), dp(24), dp(4), 0)
                 val messageView = snackbarView.findViewById<TextView>(
                     com.google.android.material.R.id.snackbar_text
                 )
                 messageView.apply {
-                    maxLines = Int.MAX_VALUE
                     ellipsize = null
                     setTextColor(ContextCompat.getColor(this@MainActivity, R.color.gameplay_ink))
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
                     typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ubuntu_regular)
                         ?: Typeface.create("sans-serif", Typeface.NORMAL)
-                    setLineSpacing(dp(2).toFloat(), 1f)
+                    setLineSpacing(0f, 1f)
+                    maxHeight = (resources.displayMetrics.heightPixels * 0.3f)
+                        .roundToInt()
+                        .coerceAtLeast(dp(72))
+                    movementMethod = ScrollingMovementMethod.getInstance()
+                    isVerticalScrollBarEnabled = true
                     this.text = styledHintText(text)
                 }
                 snackbarView.findViewById<TextView>(
@@ -359,6 +383,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                 ).apply {
                     setTextColor(ContextCompat.getColor(this@MainActivity, R.color.zen_primary))
                     typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ubuntu_medium)
+                    minimumHeight = dp(48)
                 }
                 val stage = getString(hintStageLabel(result))
                 messageView.contentDescription = "$stage. $text"
@@ -381,13 +406,122 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                             ViewGroup.LayoutParams.WRAP_CONTENT,
                             Gravity.TOP or Gravity.START
                         ).apply {
-                            marginStart = dp(16)
-                            topMargin = dp(7)
+                            marginStart = resources.getDimensionPixelSize(
+                                R.dimen.gameplay_hint_padding
+                            )
+                            topMargin = dp(4)
                         }
                     }
                 )
+                snackbar.addCallback(
+                    object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
+                        override fun onShown(transientBottomBar: Snackbar) {
+                            if (hintSnackbar === transientBottomBar) {
+                                hintSnackbarShown = true
+                                reflowForHint(transientBottomBar)
+                            }
+                        }
+
+                        override fun onDismissed(transientBottomBar: Snackbar, event: Int) {
+                            if (hintSnackbar === transientBottomBar) {
+                                hintSnackbar = null
+                                clearHintReflow()
+                            }
+                        }
+                    }
+                )
+                snackbarView.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+                    val heightChanged = bottom - top != oldBottom - oldTop
+                    if (heightChanged || top != oldTop || bottom != oldBottom) {
+                        reflowForHint(snackbar)
+                    }
+                }
                 snackbar.show()
+                reflowForHint(snackbar)
             }
+    }
+
+    private fun reflowForHint(snackbar: Snackbar) {
+        val snackbarView = snackbar.view
+        snackbarView.post {
+            if (hintSnackbar !== snackbar || !::gameplayContent.isInitialized) return@post
+            if (!hintReflowActive) {
+                hintScrollPosition = gameplayScroll.scrollY
+                hintReflowActive = true
+            }
+            keepHintInsideRoot(snackbarView)
+            val gap = resources.getDimensionPixelSize(R.dimen.gameplay_hint_reflow_gap)
+            val scrollLocation = IntArray(2)
+            val hintLocation = IntArray(2)
+            gameplayScroll.getLocationOnScreen(scrollLocation)
+            snackbarView.getLocationOnScreen(hintLocation)
+            val scrollBottom = scrollLocation[1] + gameplayScroll.height
+            val hintBottom = hintLocation[1] + snackbarView.height
+            val trailingInset = (scrollBottom - hintBottom).coerceAtLeast(0)
+            gameplayContent.setPadding(
+                gameplayContent.paddingLeft,
+                gameplayContent.paddingTop,
+                gameplayContent.paddingRight,
+                gameplayContentBaseBottomPadding + snackbarView.height + gap + trailingInset
+            )
+            gameplayContent.viewTreeObserver.addOnGlobalLayoutListener(
+                object : ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        if (gameplayContent.viewTreeObserver.isAlive) {
+                            gameplayContent.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        }
+                        scrollGameplayClearOfHint(snackbar, gap)
+                    }
+                }
+            )
+            gameplayContent.requestLayout()
+        }
+    }
+
+    private fun keepHintInsideRoot(snackbarView: View) {
+        if (!hintSnackbarShown) return
+        val root = findViewById<View>(R.id.bg)
+        val rootLocation = IntArray(2)
+        val hintLocation = IntArray(2)
+        root.getLocationOnScreen(rootLocation)
+        snackbarView.getLocationOnScreen(hintLocation)
+        val rootBottom = rootLocation[1] + root.height
+        val uncorrectedHintBottom =
+            hintLocation[1] + snackbarView.height - hintRootCorrection
+        val desiredCorrection = -(
+            uncorrectedHintBottom - rootBottom
+        ).coerceAtLeast(0f)
+        val baseTranslation = snackbarView.translationY - hintRootCorrection
+        hintRootCorrection = desiredCorrection
+        snackbarView.translationY = baseTranslation + hintRootCorrection
+    }
+
+    private fun scrollGameplayClearOfHint(snackbar: Snackbar, gap: Int) {
+        if (hintSnackbar !== snackbar || !hintSnackbarShown) return
+        val controlsLocation = IntArray(2)
+        val hintLocation = IntArray(2)
+        sudokuControlView.getLocationOnScreen(controlsLocation)
+        snackbar.view.getLocationOnScreen(hintLocation)
+        val controlsBottom = controlsLocation[1] + sudokuControlView.height
+        val requiredScroll = controlsBottom + gap - hintLocation[1]
+        if (requiredScroll != 0) {
+            gameplayScroll.scrollBy(0, requiredScroll)
+        }
+    }
+
+    private fun clearHintReflow() {
+        hintSnackbarShown = false
+        hintRootCorrection = 0f
+        if (!::gameplayContent.isInitialized || !hintReflowActive) return
+        gameplayContent.setPadding(
+            gameplayContent.paddingLeft,
+            gameplayContent.paddingTop,
+            gameplayContent.paddingRight,
+            gameplayContentBaseBottomPadding
+        )
+        gameplayContent.requestLayout()
+        gameplayScroll.post { gameplayScroll.scrollTo(0, hintScrollPosition) }
+        hintReflowActive = false
     }
 
     private fun styledHintText(text: String): CharSequence {
@@ -844,7 +978,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     )
 
     override fun onDestroy() {
-        hintSnackbar?.dismiss()
+        val snackbar = hintSnackbar
+        hintSnackbar = null
+        snackbar?.dismiss()
+        clearHintReflow()
         pauseDialog?.dismiss()
         completionDialog?.dismiss()
         super.onDestroy()

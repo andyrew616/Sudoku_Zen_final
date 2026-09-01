@@ -138,7 +138,8 @@ class SudokuControlView @JvmOverloads constructor(
             val preferredHeight = (availableWidth * 0.48f).roundToInt()
                 .coerceIn(numberGridMinHeight, numberGridMaxHeight)
             numberGrid.layoutParams = (numberGrid.layoutParams as LinearLayout.LayoutParams).apply {
-                height = preferredHeight + reclaimedBottomSpace
+                height = (preferredHeight + reclaimedBottomSpace)
+                    .coerceAtMost(numberGridMaxHeight)
             }
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)

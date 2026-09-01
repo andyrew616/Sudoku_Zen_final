@@ -34,9 +34,9 @@
                 android:background="@drawable/gameplay_header_surface"
                 android:minHeight="@dimen/gameplay_header_height"
                 android:paddingStart="@dimen/gameplay_header_horizontal_padding"
-                android:paddingTop="7dp"
+                android:paddingTop="@dimen/gameplay_header_vertical_padding"
                 android:paddingEnd="4dp"
-                android:paddingBottom="7dp"
+                android:paddingBottom="@dimen/gameplay_header_vertical_padding"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -47,12 +47,12 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="8dp"
-                    android:gravity="start"
+                    android:gravity="start|center_vertical"
+                    android:minHeight="@dimen/gameplay_pause_size"
                     android:orientation="vertical"
-                    app:layout_constraintBottom_toBottomOf="@id/pauseButton"
                     app:layout_constraintEnd_toStartOf="@id/hintsMetric"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="@id/pauseButton">
+                    app:layout_constraintTop_toTopOf="parent">
 
                     <TextView
                         android:id="@+id/difficultyTimeLabel"
@@ -83,7 +83,7 @@
                     android:id="@+id/modePill"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="@dimen/gameplay_header_mode_gap"
                     android:background="@drawable/gameplay_mode_pill"
                     android:gravity="center"
                     android:minHeight="32dp"
@@ -93,7 +93,7 @@
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/pauseButton">
+                    app:layout_constraintTop_toBottomOf="@id/statusRowBottom">
 
                     <View
                         android:layout_width="@dimen/gameplay_mode_dot_size"
@@ -121,11 +121,11 @@
                     android:id="@+id/hintsMetric"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:gravity="end"
+                    android:gravity="end|center_vertical"
+                    android:minHeight="@dimen/gameplay_pause_size"
                     android:orientation="vertical"
-                    app:layout_constraintBottom_toBottomOf="@id/pauseButton"
                     app:layout_constraintEnd_toStartOf="@id/pauseButton"
-                    app:layout_constraintTop_toTopOf="@id/pauseButton">
+                    app:layout_constraintTop_toTopOf="parent">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -159,6 +159,13 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     app:srcCompat="@drawable/ic_gameplay_pause" />
+
+                <androidx.constraintlayout.widget.Barrier
+                    android:id="@+id/statusRowBottom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:barrierDirection="bottom"
+                    app:constraint_referenced_ids="timeMetric,hintsMetric,pauseButton" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <rew.lightgames.sudoku2.SudokuBoardView
@@ -166,7 +173,7 @@
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:layout_marginStart="@dimen/gameplay_horizontal_inset"
-                android:layout_marginTop="@dimen/gameplay_section_gap"
+                android:layout_marginTop="@dimen/gameplay_header_board_gap"
                 android:layout_marginEnd="@dimen/gameplay_horizontal_inset"
                 android:background="@drawable/gameplay_board_surface"
                 android:elevation="@dimen/gameplay_board_elevation"
@@ -182,12 +189,13 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="@dimen/gameplay_horizontal_inset"
-                android:layout_marginTop="@dimen/gameplay_section_gap"
+                android:layout_marginTop="@dimen/gameplay_board_controls_gap"
                 android:layout_marginEnd="@dimen/gameplay_horizontal_inset"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/sudokuBoardView"
+                app:layout_constraintVertical_bias="0"
                 app:layout_constraintWidth_max="430dp" />
 
             <LinearLayout

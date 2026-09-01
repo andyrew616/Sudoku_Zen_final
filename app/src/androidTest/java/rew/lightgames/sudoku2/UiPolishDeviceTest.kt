@@ -162,6 +162,55 @@ class UiPolishDeviceTest {
     }
 
     @Test
+    fun gameplaySpacingKeepsBoardControlsAndKeypadInOneRhythm() {
+        val activity = launchGame()
+        try {
+            waitUntilReady(viewModel(activity))
+            val header = activity.findViewById<View>(R.id.gameplayHeader)
+            val board = activity.findViewById<View>(R.id.sudokuBoardView)
+            val controls = activity.findViewById<View>(R.id.sudokuControlView)
+            val actions = activity.findViewById<View>(R.id.gameplayNotesAction)
+            listOf(header, board, controls, actions).forEach(::waitUntilLaidOut)
+
+            assertEquals(dp(activity, 90), header.height)
+            assertEquals(dp(activity, 16), board.top - header.bottom)
+            assertEquals(dp(activity, 16), controls.top - board.bottom)
+
+            val numberKeys = numberKeys(activity)
+            assertEquals(9, numberKeys.size)
+            val firstNumberRowTop = numberKeys.minOf { it.topOnScreen() }
+            val actionRowBottom = actions.bottomOnScreen()
+            assertTrue(firstNumberRowTop - actionRowBottom >= dp(activity, 12))
+            assertTrue(firstNumberRowTop - actionRowBottom <= dp(activity, 16))
+
+            val minimumTouchTarget = dp(activity, 48)
+            numberKeys.forEach { key ->
+                assertTrue(key.height >= minimumTouchTarget)
+                assertTrue(key.height <= dp(activity, 64))
+            }
+
+            val timeLabel = activity.findViewById<TextView>(R.id.difficultyTimeLabel)
+            val timer = activity.findViewById<TextView>(R.id.timerTextView)
+            val hints = activity.findViewById<TextView>(R.id.hintsCountTextView)
+            val mode = activity.findViewById<View>(R.id.modePill)
+            val pause = activity.findViewById<View>(R.id.pauseButton)
+            onMain {
+                listOf(timeLabel, timer, hints).forEach { text ->
+                    text.setTextSize(TypedValue.COMPLEX_UNIT_PX, text.textSize * 1.7f)
+                }
+            }
+            waitForCondition("Header did not expand for enlarged status text") {
+                header.height > dp(activity, 90) &&
+                    mode.top >= timeLabel.parentView().bottom &&
+                    mode.top >= hints.parentView().bottom &&
+                    mode.top >= pause.bottom
+            }
+        } finally {
+            close(activity)
+        }
+    }
+
+    @Test
     fun pauseRemainsModalAndTimerStaysStoppedAcrossOptions() {
         val activity = launchGame()
         try {
@@ -216,11 +265,12 @@ class UiPolishDeviceTest {
             val result = viewModel.logicalHintResult.value as LogicalHintResult.Available
             val expectedText = LogicalHintTextFormatter(activity).format(result.hint)
             val snackbar = waitForSnackbar(activity)
+            waitForHintClearOfKeypad(activity, snackbar)
             val message = snackbar.view.findViewById<TextView>(
                 com.google.android.material.R.id.snackbar_text
             )
             assertEquals(expectedText, message.text.toString())
-            assertEquals(Int.MAX_VALUE, message.maxLines)
+            assertEquals(-1, message.maxLines)
 
             val stage = activity.getString(R.string.gameplay_hint_stage_technique)
             assertEquals(
@@ -247,25 +297,62 @@ class UiPolishDeviceTest {
             assertEquals(HintDetailLevel.ACTION, actionResult.hint.detailLevel)
             val longestText = LogicalHintTextFormatter(activity).format(actionResult.hint)
             val actionSnackbar = waitForSnackbar(activity)
+            waitForHintClearOfKeypad(activity, actionSnackbar)
             val actionMessage = actionSnackbar.view.findViewById<TextView>(
                 com.google.android.material.R.id.snackbar_text
             )
+            val actionButton = actionSnackbar.view.findViewById<TextView>(
+                com.google.android.material.R.id.snackbar_action
+            )
             assertEquals(longestText, actionMessage.text.toString())
+            val compactHintWidth = dp(activity, 240)
             onMain {
                 actionMessage.setTextSize(
                     TypedValue.COMPLEX_UNIT_PX,
                     actionMessage.textSize * 1.3f
                 )
                 actionSnackbar.view.layoutParams = actionSnackbar.view.layoutParams.apply {
-                    width = dp(activity, 240)
+                    width = compactHintWidth
                 }
                 actionSnackbar.view.requestLayout()
             }
-            waitUntilTextLaidOut(actionMessage)
-            assertEquals(Int.MAX_VALUE, actionMessage.maxLines)
+            waitForCondition("Hint did not complete its compact enlarged-text layout") {
+                actionSnackbar.view.width == compactHintWidth &&
+                    actionMessage.layout != null &&
+                    actionMessage.lineCount > 1
+            }
+            waitForHintClearOfKeypad(activity, actionSnackbar)
+            assertEquals(-1, actionMessage.maxLines)
             assertTrue(actionMessage.lineCount > 1)
             for (line in 0 until actionMessage.lineCount) {
                 assertEquals(0, actionMessage.layout.getEllipsisCount(line))
+            }
+            waitForCondition("Compact hint did not settle fully inside the root viewport") {
+                val root = activity.findViewById<View>(R.id.bg)
+                val rootBounds = Rect()
+                val hintBounds = Rect()
+                root.getGlobalVisibleRect(rootBounds) &&
+                    actionSnackbar.view.getGlobalVisibleRect(hintBounds) &&
+                    hintBounds.height() == actionSnackbar.view.height &&
+                    rootBounds.contains(hintBounds)
+            }
+            val rootBounds = activity.findViewById<View>(R.id.bg).visibleBounds()
+            val hintBounds = actionSnackbar.view.visibleBounds()
+            val actionBounds = actionButton.visibleBounds()
+            assertEquals(actionSnackbar.view.height, hintBounds.height())
+            assertTrue(rootBounds.contains(hintBounds))
+            assertTrue(hintBounds.contains(actionBounds))
+            assertTrue(actionButton.height >= dp(activity, 48))
+
+            val content = activity.findViewById<View>(R.id.gameplayContent)
+            val scroll = activity.findViewById<NestedScrollView>(R.id.gameplayScroll)
+            onMain { actionButton.performClick() }
+            waitForCondition("Hint dismissal did not restore gameplay layout") {
+                hintSnackbar(activity) == null &&
+                    content.paddingBottom == activity.resources.getDimensionPixelSize(
+                        R.dimen.gameplay_vertical_inset
+                    ) &&
+                    scroll.scrollY == 0
             }
         } finally {
             close(activity)
@@ -504,15 +591,39 @@ class UiPolishDeviceTest {
     }
 
     private fun waitForSnackbar(activity: MainActivity): Snackbar {
-        val field = MainActivity::class.java.getDeclaredField("hintSnackbar")
-            .apply { isAccessible = true }
         val deadline = SystemClock.elapsedRealtime() + 3_000L
         while (SystemClock.elapsedRealtime() < deadline) {
             instrumentation.waitForIdleSync()
-            (field.get(activity) as Snackbar?)?.let { return it }
+            hintSnackbar(activity)?.let { return it }
             Thread.sleep(20L)
         }
         error("Hint surface was not rendered")
+    }
+
+    private fun hintSnackbar(activity: MainActivity): Snackbar? =
+        MainActivity::class.java.getDeclaredField("hintSnackbar")
+            .apply { isAccessible = true }
+            .get(activity) as Snackbar?
+
+    private fun waitForHintClearOfKeypad(activity: MainActivity, snackbar: Snackbar) {
+        val deadline = SystemClock.elapsedRealtime() + 3_000L
+        val gap = dp(activity, 12)
+        while (SystemClock.elapsedRealtime() < deadline) {
+            instrumentation.waitForIdleSync()
+            val keypadBottom = numberKeys(activity).maxOfOrNull { it.bottomOnScreen() }
+            val hintTop = snackbar.view.topOnScreen()
+            if (keypadBottom != null && keypadBottom + gap <= hintTop) return
+            Thread.sleep(20L)
+        }
+        val keypadBottom = numberKeys(activity).maxOfOrNull { it.bottomOnScreen() }
+        val scroll = activity.findViewById<NestedScrollView>(R.id.gameplayScroll)
+        val content = activity.findViewById<View>(R.id.gameplayContent)
+        error(
+            "Hint overlaps keypad: keypadBottom=$keypadBottom " +
+                "hintTop=${snackbar.view.topOnScreen()} hintHeight=${snackbar.view.height} " +
+                "scrollY=${scroll.scrollY} viewport=${scroll.height} content=${content.height} " +
+                "paddingBottom=${content.paddingBottom} canScrollDown=${scroll.canScrollVertically(1)}"
+        )
     }
 
     private fun waitUntilLaidOut(view: View) {
@@ -533,6 +644,16 @@ class UiPolishDeviceTest {
             Thread.sleep(20L)
         }
         error("Text did not complete its layout pass")
+    }
+
+    private fun waitForCondition(message: String, condition: () -> Boolean) {
+        val deadline = SystemClock.elapsedRealtime() + 3_000L
+        while (SystemClock.elapsedRealtime() < deadline) {
+            instrumentation.waitForIdleSync()
+            if (condition()) return
+            Thread.sleep(20L)
+        }
+        error(message)
     }
 
     private fun waitForSystemBarsHidden(view: View): WindowInsetsCompat {
@@ -609,6 +730,30 @@ class UiPolishDeviceTest {
                 yieldAll(descendants(root.getChildAt(index)))
             }
         }
+    }
+
+    private fun numberKeys(activity: MainActivity): List<Button> {
+        val descriptions = (1..9).map {
+            activity.getString(R.string.gameplay_number_key, it)
+        }.toSet()
+        return descendants(activity.findViewById(android.R.id.content))
+            .filterIsInstance<Button>()
+            .filter { it.contentDescription?.toString() in descriptions }
+            .toList()
+    }
+
+    private fun View.topOnScreen(): Int {
+        val location = IntArray(2)
+        getLocationOnScreen(location)
+        return location[1]
+    }
+
+    private fun View.bottomOnScreen(): Int = topOnScreen() + height
+
+    private fun View.parentView(): View = parent as View
+
+    private fun View.visibleBounds(): Rect = Rect().also { bounds ->
+        assertTrue(getGlobalVisibleRect(bounds))
     }
 
     private fun dp(context: Context, value: Int): Int =
