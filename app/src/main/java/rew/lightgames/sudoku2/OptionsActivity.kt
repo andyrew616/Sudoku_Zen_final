@@ -5,12 +5,15 @@ import android.content.SharedPreferences
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Switch
+import android.widget.Button
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 
 class OptionsActivity : AppCompatActivity() {
 
@@ -23,6 +26,10 @@ class OptionsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_options)
 
         val root = findViewById<android.view.View>(android.R.id.content)
+        WindowInsetsControllerCompat(window, root).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -43,21 +50,27 @@ class OptionsActivity : AppCompatActivity() {
             MainActivity.PREF_AUTO_NOTES,
             false
         )
+        updateSwitchStateDescription(musicSwitch)
+        updateSwitchStateDescription(soundEffectsSwitch)
+        updateSwitchStateDescription(autoNotesSwitch)
 
 
         // Save new state when it changes
         musicSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit().putBoolean("music", isChecked).apply()
+            updateSwitchStateDescription(musicSwitch)
         }
 
         soundEffectsSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit().putBoolean("sound_effects", isChecked).apply()
+            updateSwitchStateDescription(soundEffectsSwitch)
         }
 
         autoNotesSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit()
                 .putBoolean(MainActivity.PREF_AUTO_NOTES, isChecked)
                 .apply()
+            updateSwitchStateDescription(autoNotesSwitch)
         }
 
         val privacyRow = findViewById<View>(R.id.privacyOptionsRow)
@@ -66,6 +79,18 @@ class OptionsActivity : AppCompatActivity() {
             privacyRow.setOnClickListener {
                 ConsentManager.showPrivacyOptionsForm(this)
             }
+            ViewCompat.setAccessibilityDelegate(
+                privacyRow,
+                object : AccessibilityDelegateCompat() {
+                    override fun onInitializeAccessibilityNodeInfo(
+                        host: View,
+                        info: AccessibilityNodeInfoCompat
+                    ) {
+                        super.onInitializeAccessibilityNodeInfo(host, info)
+                        info.className = Button::class.java.name
+                    }
+                }
+            )
         } else {
             privacyRow.visibility = View.GONE
         }
@@ -77,6 +102,16 @@ class OptionsActivity : AppCompatActivity() {
     }
     fun onBackButtonClicked(view: View) {
         onBackPressedDispatcher.onBackPressed()
+    }
+
+    private fun updateSwitchStateDescription(toggle: SwitchCompat) {
+        ViewCompat.setStateDescription(
+            toggle,
+            getString(
+                if (toggle.isChecked) R.string.settings_switch_on
+                else R.string.settings_switch_off
+            )
+        )
     }
 
 }

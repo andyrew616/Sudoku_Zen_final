@@ -6,9 +6,10 @@
     <dimen name="thin_separator_width">1dp</dimen>
 
     <!-- Gameplay screen spacing and sizing. -->
-    <dimen name="gameplay_horizontal_inset">32dp</dimen>
-    <dimen name="gameplay_section_gap">2dp</dimen>
-    <dimen name="gameplay_header_height">48dp</dimen>
+    <dimen name="gameplay_horizontal_inset">12dp</dimen>
+    <dimen name="gameplay_vertical_inset">10dp</dimen>
+    <dimen name="gameplay_section_gap">6dp</dimen>
+    <dimen name="gameplay_header_height">100dp</dimen>
     <dimen name="gameplay_header_radius">14dp</dimen>
     <dimen name="gameplay_header_horizontal_padding">10dp</dimen>
     <dimen name="gameplay_pause_size">48dp</dimen>
@@ -25,13 +26,38 @@
     <dimen name="gameplay_number_grid_min_height">156dp</dimen>
     <dimen name="gameplay_number_grid_max_height">192dp</dimen>
     <dimen name="gameplay_number_key_gap">2dp</dimen>
-    <dimen name="gameplay_header_eyebrow_size">8sp</dimen>
-    <dimen name="gameplay_header_value_size">16sp</dimen>
+    <dimen name="gameplay_header_eyebrow_size">10sp</dimen>
+    <dimen name="gameplay_header_value_size">18sp</dimen>
     <dimen name="gameplay_mode_text_size">12sp</dimen>
     <dimen name="gameplay_mode_dot_size">7dp</dimen>
     <dimen name="gameplay_number_text_size">24sp</dimen>
     <dimen name="gameplay_number_key_radius">10dp</dimen>
     <dimen name="gameplay_number_key_stroke_width">0.5dp</dimen>
+    <dimen name="gameplay_cell_state_stroke_width">2dp</dimen>
+    <dimen name="gameplay_cell_state_inset">3dp</dimen>
+    <dimen name="gameplay_hint_radius">16dp</dimen>
+    <dimen name="gameplay_hint_padding">14dp</dimen>
+
+    <!-- Shared secondary surfaces. -->
+    <dimen name="zen_screen_inset">20dp</dimen>
+    <dimen name="zen_screen_top_inset">16dp</dimen>
+    <dimen name="zen_content_max_width">560dp</dimen>
+    <dimen name="zen_min_touch_target">48dp</dimen>
+    <dimen name="zen_surface_radius">20dp</dimen>
+    <dimen name="zen_surface_padding">16dp</dimen>
+    <dimen name="zen_surface_gap">12dp</dimen>
+    <dimen name="zen_icon_size">44dp</dimen>
+    <dimen name="zen_dialog_max_width">380dp</dimen>
+    <dimen name="zen_dialog_inset">24dp</dimen>
+    <dimen name="zen_dialog_radius">24dp</dimen>
+    <dimen name="zen_dialog_padding">24dp</dimen>
+    <dimen name="zen_dialog_button_height">52dp</dimen>
+    <dimen name="zen_title_size">30sp</dimen>
+    <dimen name="zen_dialog_title_size">26sp</dimen>
+    <dimen name="zen_section_size">12sp</dimen>
+    <dimen name="zen_body_size">15sp</dimen>
+    <dimen name="zen_label_size">17sp</dimen>
+    <dimen name="zen_supporting_size">13sp</dimen>
 
     <!-- Menu screen spacing and sizing. -->
     <dimen name="menu_screen_inset">16dp</dimen>

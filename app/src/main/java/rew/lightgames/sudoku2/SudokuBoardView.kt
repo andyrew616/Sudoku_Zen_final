@@ -7,9 +7,14 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 
 interface OnCellSelectedListener {
     fun onCellSelected(row: Int, col: Int)
@@ -59,6 +64,8 @@ class SudokuBoardView @JvmOverloads constructor(
             val col = index % 9
             val cellView = SudokuCellView(context, null).apply {
                 id = View.generateViewId()
+                isFocusable = true
+                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
                 layoutParams = GridLayout.LayoutParams().apply {
                     width = 0
                     height = 0
@@ -67,6 +74,25 @@ class SudokuBoardView @JvmOverloads constructor(
                     setGravity(Gravity.FILL)
                 }
                 setBackgroundColor(color(R.color.gameplay_board_cell))
+                setOnClickListener { selectEditableCell(row, col) }
+                ViewCompat.setAccessibilityDelegate(
+                    this,
+                    object : AccessibilityDelegateCompat() {
+                        override fun onInitializeAccessibilityNodeInfo(
+                            host: View,
+                            info: AccessibilityNodeInfoCompat
+                        ) {
+                            super.onInitializeAccessibilityNodeInfo(host, info)
+                            val editable = board?.getCell(row, col)?.isEditable == true
+                            info.className = if (editable) {
+                                Button::class.java.name
+                            } else {
+                                TextView::class.java.name
+                            }
+                            info.isClickable = editable
+                        }
+                    }
+                )
             }
             cells[row][col] = cellView
             gridLayout.addView(cellView)
@@ -102,13 +128,7 @@ class SudokuBoardView @JvmOverloads constructor(
         if (event.action == MotionEvent.ACTION_DOWN && width > 0 && height > 0) {
             val col = (event.x / (width / 9f)).toInt().coerceIn(0, 8)
             val row = (event.y / (height / 9f)).toInt().coerceIn(0, 8)
-            if (board?.getCell(row, col)?.isEditable == true) {
-                selectedRow = row
-                selectedCol = col
-                cellSelectedListener?.onCellSelected(row, col)
-                renderAllCells()
-                invalidate()
-            }
+            selectEditableCell(row, col)
         } else if (event.action == MotionEvent.ACTION_UP) {
             performClick()
         }
@@ -198,10 +218,30 @@ class SudokuBoardView @JvmOverloads constructor(
                 }
 
                 cells[row][col]?.apply {
-                    setCell(cell, error, presentedNotes)
+                    setCell(
+                        cell = cell,
+                        isError = error,
+                        presentedNotes = presentedNotes,
+                        automaticNotes = autoNotes != null,
+                        selected = selected,
+                        hintRole = dominantHint?.role
+                    )
                     setBackgroundColor(backgroundColor)
+                    isClickable = cell.isEditable
+                    isSelected = selected
                     contentDescription = hintContentDescription(row, col, cellHighlights)
                         ?: notesContentDescription(row, col, cell, presentedNotes)
+                        ?: cellContentDescription(row, col, cell)
+                    val states = buildList {
+                        if (selected) add(resources.getString(R.string.sudoku_cell_selected_state))
+                        if (error) add(resources.getString(R.string.sudoku_cell_conflict_state))
+                    }
+                    ViewCompat.setStateDescription(
+                        this,
+                        states.takeIf { it.isNotEmpty() }?.joinToString(
+                            resources.getString(R.string.hint_list_separator)
+                        )
+                    )
                 }
             }
         }
@@ -212,6 +252,37 @@ class SudokuBoardView @JvmOverloads constructor(
         return cell.isEditable &&
             cell.number != 0 &&
             board?.hasVisibleConflict(row, col) == true
+    }
+
+    private fun selectEditableCell(row: Int, col: Int) {
+        if (board?.getCell(row, col)?.isEditable != true) return
+        selectedRow = row
+        selectedCol = col
+        cellSelectedListener?.onCellSelected(row, col)
+        renderAllCells()
+        invalidate()
+    }
+
+    private fun cellContentDescription(row: Int, column: Int, cell: Cell): String {
+        return when {
+            !cell.isEditable -> resources.getString(
+                R.string.sudoku_cell_given,
+                row + 1,
+                column + 1,
+                cell.number
+            )
+            cell.number != 0 -> resources.getString(
+                R.string.sudoku_cell_entered,
+                row + 1,
+                column + 1,
+                cell.number
+            )
+            else -> resources.getString(
+                R.string.sudoku_cell_empty,
+                row + 1,
+                column + 1
+            )
+        }
     }
 
     private fun hintContentDescription(

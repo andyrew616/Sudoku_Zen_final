@@ -1,180 +1,337 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/optionsRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/ic_waterclour_background2"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@drawable/zen_app_background">
 
-    <ImageView
-        android:id="@+id/backButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:adjustViewBounds="true"
-        android:cropToPadding="true"
-        android:maxWidth="48dp"
-        android:maxHeight="48dp"
-        android:onClick="onBackButtonClicked"
-        android:padding="10dp"
-        android:scaleType="fitStart"
-        app:srcCompat="@drawable/left_arrow" />
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="20dp"
-        android:text="@string/settings"
-        android:textSize="30sp"
-        android:textColor="@android:color/white"
-        android:textStyle="bold" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:adjustViewBounds="true"
-            android:cropToPadding="true"
-            android:maxWidth="48dp"
-            android:maxHeight="48dp"
-            android:scaleType="fitCenter"
-            app:srcCompat="@drawable/music_note" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:paddingStart="10dp"
-            android:text="Music"
-            android:textSize="20sp"
-            android:textColor="@android:color/white" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/musicSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minWidth="48dp"
-            android:minHeight="48dp" />
-
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:adjustViewBounds="true"
-            android:cropToPadding="true"
-            android:maxWidth="48dp"
-            android:maxHeight="48dp"
-            android:scaleType="fitCenter"
-            app:srcCompat="@drawable/speaker" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:paddingStart="10dp"
-            android:text="Sound Effects"
-            android:textSize="20sp"
-            android:textColor="@android:color/white" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/soundEffectsSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minWidth="48dp"
-            android:minHeight="48dp" />
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:contentDescription="@null"
-            android:padding="8dp"
-            android:scaleType="fitCenter"
-            app:srcCompat="@drawable/ic_gameplay_notes" />
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/optionsScroll"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="ifContentScrolls"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="@dimen/zen_content_max_width">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:orientation="vertical"
-            android:paddingStart="10dp">
+            android:paddingStart="@dimen/zen_screen_inset"
+            android:paddingTop="@dimen/zen_screen_top_inset"
+            android:paddingEnd="@dimen/zen_screen_inset"
+            android:paddingBottom="32dp">
+
+            <ImageButton
+                android:id="@+id/backButton"
+                android:layout_width="@dimen/zen_min_touch_target"
+                android:layout_height="@dimen/zen_min_touch_target"
+                android:background="@drawable/gameplay_utility_action"
+                android:contentDescription="@string/settings_back"
+                android:onClick="onBackButtonClicked"
+                android:padding="14dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/left_arrow"
+                app:tint="@color/zen_primary" />
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/settings_auto_notes"
-                android:textColor="@android:color/white"
-                android:textSize="20sp" />
+                android:layout_marginTop="12dp"
+                android:fontFamily="@font/ubuntu_medium"
+                android:text="@string/settings_title"
+                android:textColor="@color/gameplay_ink"
+                android:textSize="@dimen/zen_title_size" />
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/settings_auto_notes_description"
-                android:textColor="@android:color/white"
-                android:textSize="14sp" />
+                android:layout_marginTop="4dp"
+                android:fontFamily="@font/ubuntu_regular"
+                android:lineSpacingExtra="2dp"
+                android:text="@string/settings_subtitle"
+                android:textColor="@color/gameplay_ink_muted"
+                android:textSize="@dimen/zen_body_size" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:fontFamily="@font/ubuntu_medium"
+                android:letterSpacing="0.08"
+                android:text="@string/settings_gameplay_section"
+                android:textAllCaps="true"
+                android:textColor="@color/gameplay_ink_muted"
+                android:textSize="@dimen/zen_section_size" />
+
+            <LinearLayout
+                android:id="@+id/autoNotesRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/zen_surface_card"
+                android:gravity="center_vertical"
+                android:minHeight="80dp"
+                android:orientation="horizontal"
+                android:padding="@dimen/zen_surface_padding">
+
+                <ImageView
+                    android:layout_width="@dimen/zen_icon_size"
+                    android:layout_height="@dimen/zen_icon_size"
+                    android:background="@drawable/zen_icon_surface"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:padding="11dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_gameplay_notes"
+                    app:tint="@color/zen_primary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/autoNotesLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/ubuntu_medium"
+                        android:labelFor="@id/autoNotesSwitch"
+                        android:text="@string/settings_auto_notes"
+                        android:textColor="@color/gameplay_ink"
+                        android:textSize="@dimen/zen_label_size" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/ubuntu_regular"
+                        android:lineSpacingExtra="1dp"
+                        android:text="@string/settings_auto_notes_description"
+                        android:textColor="@color/gameplay_ink_muted"
+                        android:textSize="@dimen/zen_supporting_size" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/autoNotesSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/settings_auto_notes_accessibility"
+                    android:minWidth="@dimen/zen_min_touch_target"
+                    android:minHeight="@dimen/zen_min_touch_target" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:fontFamily="@font/ubuntu_medium"
+                android:letterSpacing="0.08"
+                android:text="@string/settings_audio_section"
+                android:textAllCaps="true"
+                android:textColor="@color/gameplay_ink_muted"
+                android:textSize="@dimen/zen_section_size" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/zen_surface_card"
+                android:orientation="vertical"
+                android:paddingStart="@dimen/zen_surface_padding"
+                android:paddingEnd="@dimen/zen_surface_padding">
+
+                <LinearLayout
+                    android:id="@+id/musicRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="80dp"
+                    android:orientation="horizontal"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/zen_icon_size"
+                        android:layout_height="@dimen/zen_icon_size"
+                        android:background="@drawable/zen_icon_surface"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="11dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/music_note"
+                        app:tint="@color/zen_primary" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/ubuntu_medium"
+                            android:labelFor="@id/musicSwitch"
+                            android:text="@string/settings_music"
+                            android:textColor="@color/gameplay_ink"
+                            android:textSize="@dimen/zen_label_size" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:fontFamily="@font/ubuntu_regular"
+                            android:text="@string/settings_music_description"
+                            android:textColor="@color/gameplay_ink_muted"
+                            android:textSize="@dimen/zen_supporting_size" />
+                    </LinearLayout>
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/musicSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@string/settings_music"
+                        android:minWidth="@dimen/zen_min_touch_target"
+                        android:minHeight="@dimen/zen_min_touch_target" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="58dp"
+                    android:background="@color/gameplay_divider"
+                    android:importantForAccessibility="no" />
+
+                <LinearLayout
+                    android:id="@+id/soundEffectsRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="80dp"
+                    android:orientation="horizontal"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/zen_icon_size"
+                        android:layout_height="@dimen/zen_icon_size"
+                        android:background="@drawable/zen_icon_surface"
+                        android:contentDescription="@null"
+                        android:importantForAccessibility="no"
+                        android:padding="11dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/speaker"
+                        app:tint="@color/zen_primary" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/ubuntu_medium"
+                            android:labelFor="@id/soundEffectsSwitch"
+                            android:text="@string/settings_sound_effects"
+                            android:textColor="@color/gameplay_ink"
+                            android:textSize="@dimen/zen_label_size" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:fontFamily="@font/ubuntu_regular"
+                            android:text="@string/settings_sound_effects_description"
+                            android:textColor="@color/gameplay_ink_muted"
+                            android:textSize="@dimen/zen_supporting_size" />
+                    </LinearLayout>
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/soundEffectsSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@string/settings_sound_effects"
+                        android:minWidth="@dimen/zen_min_touch_target"
+                        android:minHeight="@dimen/zen_min_touch_target" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/privacyOptionsRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/zen_surface_gap"
+                android:background="@drawable/zen_surface_card"
+                android:clickable="true"
+                android:contentDescription="@string/privacy_settings"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:minHeight="72dp"
+                android:orientation="horizontal"
+                android:padding="@dimen/zen_surface_padding"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="@dimen/zen_icon_size"
+                    android:layout_height="@dimen/zen_icon_size"
+                    android:background="@drawable/zen_icon_surface"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:padding="11dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_privacy"
+                    app:tint="@color/zen_primary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/ubuntu_medium"
+                        android:text="@string/privacy_settings"
+                        android:textColor="@color/gameplay_ink"
+                        android:textSize="@dimen/zen_label_size" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/ubuntu_regular"
+                        android:text="@string/settings_privacy_description"
+                        android:textColor="@color/gameplay_ink_muted"
+                        android:textSize="@dimen/zen_supporting_size" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:text="@string/menu_disclosure"
+                    android:textColor="@color/gameplay_ink_muted"
+                    android:textSize="22sp" />
+            </LinearLayout>
         </LinearLayout>
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/autoNotesSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:contentDescription="@string/settings_auto_notes_accessibility"
-            android:minWidth="48dp"
-            android:minHeight="48dp" />
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/privacyOptionsRow"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:adjustViewBounds="true"
-            android:cropToPadding="true"
-            android:maxWidth="48dp"
-            android:maxHeight="48dp"
-            android:scaleType="fitCenter"
-            app:srcCompat="@drawable/ic_privacy" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:paddingStart="10dp"
-            android:text="@string/privacy_settings"
-            android:textSize="20sp"
-            android:textColor="@android:color/white" />
-
-    </LinearLayout>
-
-</LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="gameplayNotesAction" type="id" />
+    <item name="gameplayHintAction" type="id" />
+    <item name="gameplayEraseAction" type="id" />
+</resources>

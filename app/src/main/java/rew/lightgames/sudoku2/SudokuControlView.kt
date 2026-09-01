@@ -14,6 +14,10 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import kotlin.math.roundToInt
 
 interface SudokuControlListener {
@@ -41,6 +45,7 @@ class SudokuControlView @JvmOverloads constructor(
         resources.getDimensionPixelSize(R.dimen.gameplay_number_grid_max_height)
     private var reclaimedBottomSpace = 0
     private lateinit var notesAction: LinearLayout
+    private lateinit var notesLabel: TextView
     private var autoNotesEnabled = false
 
     init {
@@ -80,19 +85,22 @@ class SudokuControlView @JvmOverloads constructor(
                 return@createUtilityAction
             }
             notesMode = !notesMode
-            notesAction.isSelected = notesMode
+            renderNotesAction()
             listener?.onNotesModeChanged(notesMode)
         }
+        notesAction.id = R.id.gameplayNotesAction
+        notesLabel = notesAction.getChildAt(1) as TextView
+        renderNotesAction()
         utilityRail.addView(notesAction)
         utilityRail.addView(
             createUtilityAction(R.drawable.ic_gameplay_hint, R.string.gameplay_hint) {
                 listener?.onHintsButtonClicked()
-            }
+            }.apply { id = R.id.gameplayHintAction }
         )
         utilityRail.addView(
             createUtilityAction(R.drawable.ic_gameplay_erase, R.string.gameplay_erase) {
                 listener?.onEraseButtonClicked()
-            }
+            }.apply { id = R.id.gameplayEraseAction }
         )
 
         numberGrid.apply {
@@ -120,16 +128,8 @@ class SudokuControlView @JvmOverloads constructor(
         autoNotesEnabled = enabled
         if (enabled) {
             notesMode = false
-            notesAction.isSelected = false
         }
-        notesAction.alpha = if (enabled) 0.55f else 1f
-        notesAction.contentDescription = context.getString(
-            if (enabled) {
-                R.string.gameplay_manual_notes_unavailable
-            } else {
-                R.string.gameplay_notes
-            }
-        )
+        renderNotesAction()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -163,14 +163,13 @@ class SudokuControlView @JvmOverloads constructor(
                 TypedValue.COMPLEX_UNIT_PX,
                 resources.getDimension(R.dimen.gameplay_number_text_size)
             )
-            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            typeface = ResourcesCompat.getFont(context, R.font.ubuntu_medium)
+                ?: Typeface.create("sans-serif", Typeface.NORMAL)
             gravity = Gravity.CENTER
             includeFontPadding = false
             isAllCaps = false
-            minWidth = 0
-            minHeight = 0
-            minimumWidth = 0
-            minimumHeight = 0
+            minWidth = resources.getDimensionPixelSize(R.dimen.zen_min_touch_target)
+            minHeight = resources.getDimensionPixelSize(R.dimen.zen_min_touch_target)
             stateListAnimator = null
             setPadding(0, 0, 0, 0)
             setOnClickListener { listener?.onNumberButtonClicked(value) }
@@ -200,6 +199,18 @@ class SudokuControlView @JvmOverloads constructor(
             background = ContextCompat.getDrawable(context, R.drawable.gameplay_utility_action)
             contentDescription = context.getString(labelRes)
             setOnClickListener { onClick() }
+            ViewCompat.setAccessibilityDelegate(
+                this,
+                object : AccessibilityDelegateCompat() {
+                    override fun onInitializeAccessibilityNodeInfo(
+                        host: View,
+                        info: AccessibilityNodeInfoCompat
+                    ) {
+                        super.onInitializeAccessibilityNodeInfo(host, info)
+                        info.className = Button::class.java.name
+                    }
+                }
+            )
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -218,7 +229,8 @@ class SudokuControlView @JvmOverloads constructor(
                 setText(labelRes)
                 setTextColor(ContextCompat.getColor(context, R.color.gameplay_ink_muted))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                typeface = Typeface.create("sans-serif", Typeface.BOLD)
+                typeface = ResourcesCompat.getFont(context, R.font.ubuntu_medium)
+                    ?: Typeface.create("sans-serif", Typeface.BOLD)
                 includeFontPadding = false
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -228,6 +240,46 @@ class SudokuControlView @JvmOverloads constructor(
                 }
             })
         }
+    }
+
+    private fun renderNotesAction() {
+        if (!::notesAction.isInitialized || !::notesLabel.isInitialized) return
+        notesAction.isSelected = notesMode && !autoNotesEnabled
+        notesAction.alpha = if (autoNotesEnabled) 0.58f else 1f
+        notesLabel.setText(
+            when {
+                autoNotesEnabled -> R.string.gameplay_notes_locked_label
+                notesMode -> R.string.gameplay_notes_on_label
+                else -> R.string.gameplay_notes
+            }
+        )
+        notesLabel.setTextColor(
+            ContextCompat.getColor(
+                context,
+                if (notesMode && !autoNotesEnabled) {
+                    R.color.gameplay_mode_ink
+                } else {
+                    R.color.gameplay_ink_muted
+                }
+            )
+        )
+        notesAction.contentDescription = context.getString(
+            when {
+                autoNotesEnabled -> R.string.gameplay_manual_notes_unavailable
+                notesMode -> R.string.gameplay_notes_mode_on
+                else -> R.string.gameplay_notes_mode_off
+            }
+        )
+        ViewCompat.setStateDescription(
+            notesAction,
+            context.getString(
+                when {
+                    autoNotesEnabled -> R.string.gameplay_notes_locked_state
+                    notesMode -> R.string.settings_switch_on
+                    else -> R.string.settings_switch_off
+                }
+            )
+        )
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
