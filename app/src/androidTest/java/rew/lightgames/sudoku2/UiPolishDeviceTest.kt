@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
 import android.os.SystemClock
 import android.util.TypedValue
 import android.view.View
@@ -12,6 +13,7 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -124,6 +126,42 @@ class UiPolishDeviceTest {
     }
 
     @Test
+    fun gameplayUsesImmersiveViewportWithoutIncidentalNativeScroll() {
+        val activity = launchGame()
+        try {
+            waitUntilReady(viewModel(activity))
+            val root = activity.findViewById<View>(R.id.bg)
+            val scroll = activity.findViewById<NestedScrollView>(R.id.gameplayScroll)
+            waitUntilLaidOut(scroll)
+            val insets = waitForSystemBarsHidden(root)
+
+            assertFalse(insets.isVisible(WindowInsetsCompat.Type.statusBars()))
+            assertFalse(insets.isVisible(WindowInsetsCompat.Type.navigationBars()))
+            assertEquals(0, scroll.scrollY)
+            val configuration = activity.resources.configuration
+            val measuredReferenceProfile = configuration.screenWidthDp == 384 &&
+                configuration.screenHeightDp == 823 &&
+                configuration.fontScale <= 1.01f
+            if (measuredReferenceProfile) {
+                assertFalse(
+                    "Gameplay content ${scroll.getChildAt(0).height}px exceeds " +
+                        "the ${scroll.height}px immersive viewport",
+                    scroll.canScrollVertically(1)
+                )
+                assertFalse(scroll.canScrollVertically(-1))
+            } else {
+                val controls = activity.findViewById<View>(R.id.sudokuControlView)
+                onMain { scroll.fullScroll(View.FOCUS_DOWN) }
+                instrumentation.waitForIdleSync()
+                assertFalse(scroll.canScrollVertically(1))
+                assertTrue(controls.getGlobalVisibleRect(Rect()))
+            }
+        } finally {
+            close(activity)
+        }
+    }
+
+    @Test
     fun pauseRemainsModalAndTimerStaysStoppedAcrossOptions() {
         val activity = launchGame()
         try {
@@ -133,6 +171,7 @@ class UiPolishDeviceTest {
             val pause = requireNotNull(dialog(activity, "pauseDialog"))
             waitUntilLaidOut(pause.findViewById(R.id.pauseCard))
             assertTrue(pause.isShowing)
+            waitForSystemBarsHidden(requireNotNull(pause.window).decorView)
             assertFalse(timerIsRunning(activity))
             assertNotNull(pause.findViewById<View>(R.id.pauseDialogRoot).background)
             assertTrue(pause.findViewById<View>(R.id.pauseDialogScroll) is NestedScrollView)
@@ -147,10 +186,15 @@ class UiPolishDeviceTest {
             val options = waitForResumedActivity<OptionsActivity>()
             assertFalse(timerIsRunning(activity))
             assertOptionsAccessibility(options, minimumTouchTarget)
+            val optionsRoot = options.findViewById<View>(android.R.id.content)
+            waitForSystemBarsVisible(optionsRoot)
+            assertTrue(optionsRoot.paddingTop > 0)
+            assertTrue(optionsRoot.paddingBottom > 0)
 
             onMain { options.finish() }
             waitUntilResumed(activity)
             assertTrue(pause.isShowing)
+            waitForSystemBarsHidden(requireNotNull(pause.window).decorView)
             assertFalse(timerIsRunning(activity))
 
             onMain { pause.findViewById<Button>(R.id.resume_bttn).performClick() }
@@ -245,6 +289,7 @@ class UiPolishDeviceTest {
             val recreatedActivity = waitForRecreatedActivity(activity)
             recreated = recreatedActivity
             waitUntilReady(viewModel(recreatedActivity))
+            waitForSystemBarsHidden(recreatedActivity.findViewById(R.id.bg))
             assertEquals(originalBoard, viewModel(recreatedActivity).sudokuBoard.value)
             val restoredSeconds = timerSeconds(recreatedActivity)
             assertTrue(restoredSeconds in 754..759)
@@ -275,6 +320,7 @@ class UiPolishDeviceTest {
             val restoredPause = requireNotNull(dialog(recreatedActivity, "pauseDialog"))
             waitUntilLaidOut(restoredPause.findViewById(R.id.pauseCard))
             assertTrue(restoredPause.isShowing)
+            waitForSystemBarsHidden(requireNotNull(restoredPause.window).decorView)
             assertFalse(timerIsRunning(recreatedActivity))
 
             onMain {
@@ -314,6 +360,7 @@ class UiPolishDeviceTest {
             val completion = requireNotNull(dialog(activity, "completionDialog"))
             waitUntilLaidOut(completion.findViewById(R.id.completionCard))
             assertTrue(completion.isShowing)
+            waitForSystemBarsHidden(requireNotNull(completion.window).decorView)
             assertTrue(
                 completion.findViewById<View>(R.id.completionDialogScroll) is NestedScrollView
             )
@@ -349,6 +396,7 @@ class UiPolishDeviceTest {
                 dialog(restoredActivity, "completionDialog")
             )
             waitUntilLaidOut(restoredCompletion.findViewById(R.id.completionCard))
+            waitForSystemBarsHidden(requireNotNull(restoredCompletion.window).decorView)
             assertEquals(
                 restoredActivity.getString(R.string.completion_time, "12:34"),
                 restoredCompletion.findViewById<TextView>(R.id.totalTimeTextView).text.toString()
@@ -485,6 +533,31 @@ class UiPolishDeviceTest {
             Thread.sleep(20L)
         }
         error("Text did not complete its layout pass")
+    }
+
+    private fun waitForSystemBarsHidden(view: View): WindowInsetsCompat {
+        return waitForSystemBars(view, visible = false)
+    }
+
+    private fun waitForSystemBarsVisible(view: View): WindowInsetsCompat {
+        return waitForSystemBars(view, visible = true)
+    }
+
+    private fun waitForSystemBars(view: View, visible: Boolean): WindowInsetsCompat {
+        val deadline = SystemClock.elapsedRealtime() + 3_000L
+        while (SystemClock.elapsedRealtime() < deadline) {
+            instrumentation.waitForIdleSync()
+            val insets = ViewCompat.getRootWindowInsets(view)
+            val statusBarsMatch =
+                insets?.isVisible(WindowInsetsCompat.Type.statusBars()) == visible
+            val navigationBarsMatch =
+                insets?.isVisible(WindowInsetsCompat.Type.navigationBars()) == visible
+            if (insets != null && statusBarsMatch && navigationBarsMatch) {
+                return insets
+            }
+            Thread.sleep(20L)
+        }
+        error("System bars did not become ${if (visible) "visible" else "hidden"}")
     }
 
     private fun firstEditable(board: SudokuBoard): Pair<Int, Int> {

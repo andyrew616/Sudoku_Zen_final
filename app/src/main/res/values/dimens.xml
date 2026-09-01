@@ -7,7 +7,7 @@
 
     <!-- Gameplay screen spacing and sizing. -->
     <dimen name="gameplay_horizontal_inset">12dp</dimen>
-    <dimen name="gameplay_vertical_inset">10dp</dimen>
+    <dimen name="gameplay_vertical_inset">2dp</dimen>
     <dimen name="gameplay_section_gap">6dp</dimen>
     <dimen name="gameplay_header_height">100dp</dimen>
     <dimen name="gameplay_header_radius">14dp</dimen>

@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.media.SoundPool
+import android.os.Build
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.StyleSpan
@@ -16,6 +17,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -24,6 +26,7 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.content.ContextCompat
@@ -115,13 +118,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         setContentView(R.layout.sudoku_board_view)
 
         val root = findViewById<android.view.View>(R.id.bg)
-        WindowInsetsControllerCompat(window, root).apply {
-            isAppearanceLightStatusBars = true
-            isAppearanceLightNavigationBars = true
-        }
+        enterImmersiveGameplay(window)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            val displayCutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            v.setPadding(displayCutout.left, displayCutout.top, displayCutout.right, 0)
             insets
         }
 
@@ -708,19 +708,34 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     @Suppress("DEPRECATION")
     private fun configureFullscreenDialog(dialog: Dialog) {
         dialog.window?.apply {
+            WindowCompat.setDecorFitsSystemWindows(this, false)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                attributes = attributes.apply {
+                    layoutInDisplayCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    } else {
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    }
+                }
+            }
             setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            navigationBarColor = ContextCompat.getColor(
-                this@MainActivity,
-                R.color.zen_navigation_bar
-            )
-            WindowInsetsControllerCompat(this, decorView).apply {
-                isAppearanceLightStatusBars = true
-                isAppearanceLightNavigationBars = true
-            }
+            statusBarColor = Color.TRANSPARENT
+            navigationBarColor = Color.TRANSPARENT
+            enterImmersiveGameplay(this)
+        }
+    }
+
+    private fun enterImmersiveGameplay(targetWindow: Window) {
+        WindowInsetsControllerCompat(targetWindow, targetWindow.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
         }
     }
 
@@ -752,6 +767,9 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
     override fun onResume() {
         super.onResume()
+        enterImmersiveGameplay(window)
+        pauseDialog?.takeIf { it.isShowing }?.window?.let(::enterImmersiveGameplay)
+        completionDialog?.takeIf { it.isShowing }?.window?.let(::enterImmersiveGameplay)
         val preferenceEnabled = sharedPreferences.getBoolean(PREF_AUTO_NOTES, false)
         if (preferenceEnabled != autoNotesEnabled) {
             applyAutoNotesPreference(preferenceEnabled, forceRecompute = true)
@@ -762,6 +780,13 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             completionDialog?.isShowing != true
         ) {
             timer.start()
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            enterImmersiveGameplay(window)
         }
     }
 
