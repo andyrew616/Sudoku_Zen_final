@@ -40,7 +40,6 @@
     <dimen name="gameplay_cell_state_inset">3dp</dimen>
     <dimen name="gameplay_hint_radius">16dp</dimen>
     <dimen name="gameplay_hint_padding">14dp</dimen>
-    <dimen name="gameplay_hint_reflow_gap">12dp</dimen>
 
     <!-- Shared secondary surfaces. -->
     <dimen name="zen_screen_inset">20dp</dimen>

@@ -17,7 +17,6 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
@@ -29,6 +28,7 @@ import androidx.core.widget.NestedScrollView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.WindowInsetsCompat
@@ -74,7 +74,6 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var sudokuControlView: SudokuControlView
     private lateinit var sudokuBoardView: SudokuBoardView
     private lateinit var gameplayScroll: NestedScrollView
-    private lateinit var gameplayContent: View
     private lateinit var timerTextView: TextView
     private lateinit var hintsCountTextView: TextView
     private lateinit var modeTextView: TextView
@@ -89,17 +88,21 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var viewModel: SudokuViewModel
     private var gameplayDifficulty: SudokuDifficulty? = null
     private var hintSnackbar: Snackbar? = null
-    private var gameplayContentBaseBottomPadding = 0
-    private var hintScrollPosition = 0
-    private var hintReflowActive = false
-    private var hintSnackbarShown = false
-    private var hintRootCorrection = 0f
+    private var hintStageView: TextView? = null
+    private var coveredUtilityActionStates: List<CoveredUtilityActionState>? = null
     private var pauseDialog: Dialog? = null
     private var completionDialog: Dialog? = null
     private var lastAutoNotesBoard: SudokuBoard? = null
     private var lastAutoNotesValues: IntArray? = null
     private var lastAutoNotesEditableCells: BooleanArray? = null
     private val hintTextFormatter by lazy { LogicalHintTextFormatter(this) }
+
+    private data class CoveredUtilityActionState(
+        val view: View,
+        val importantForAccessibility: Int,
+        val isClickable: Boolean,
+        val isFocusable: Boolean
+    )
 
     private val onBackPressedCallback: OnBackPressedCallback =
         object : OnBackPressedCallback(true) {
@@ -263,8 +266,6 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         sudokuBoardView = findViewById(R.id.sudokuBoardView)
         sudokuControlView = findViewById(R.id.sudokuControlView)
         gameplayScroll = findViewById(R.id.gameplayScroll)
-        gameplayContent = findViewById(R.id.gameplayContent)
-        gameplayContentBaseBottomPadding = gameplayContent.paddingBottom
         timerTextView = findViewById(R.id.timerTextView)
         hintsCountTextView = findViewById(R.id.hintsCountTextView)
         modeTextView = findViewById(R.id.modeTextView)
@@ -276,6 +277,17 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         generationStatusText = findViewById(R.id.generationStatusText)
         generationRetryButton = findViewById(R.id.generationRetryButton)
         generationBackButton = findViewById(R.id.generationBackButton)
+        sudokuBoardView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            hintSnackbar?.let(::positionHintOverlay)
+        }
+        sudokuControlView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            hintSnackbar?.let(::positionHintOverlay)
+        }
+        gameplayScroll.setOnScrollChangeListener(
+            NestedScrollView.OnScrollChangeListener { _, _, _, _, _ ->
+                hintSnackbar?.let(::positionHintOverlay)
+            }
+        )
 
         sudokuControlView.listener = this
         sudokuBoardView.cellSelectedListener = this
@@ -313,9 +325,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private fun renderLogicalHintResult(result: LogicalHintResult?) {
         if (result == null) {
             sudokuBoardView.setHintHighlights(emptyList())
-            hintSnackbar?.dismiss()
+            val snackbar = hintSnackbar
             hintSnackbar = null
-            clearHintReflow()
+            snackbar?.dismiss()
+            clearHintOverlayState()
             return
         }
 
@@ -342,17 +355,18 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             }
         }
 
-        val previousHintSnackbar = hintSnackbar
-        hintSnackbar = null
-        previousHintSnackbar?.dismiss()
-        hintSnackbarShown = false
-        hintRootCorrection = 0f
+        hintSnackbar?.let { snackbar ->
+            updateHintOverlay(snackbar, result, text)
+            positionHintOverlay(snackbar)
+            return
+        }
+
         hintSnackbar = Snackbar.make(findViewById(R.id.bg), text, Snackbar.LENGTH_INDEFINITE)
-            .setAnchorView(adView)
             .setAction(R.string.gameplay_hint_dismiss) {
                 sudokuBoardView.setHintHighlights(emptyList())
             }
             .also { snackbar ->
+                snackbar.animationMode = BaseTransientBottomBar.ANIMATION_MODE_FADE
                 val snackbarView = snackbar.view
                 snackbarView.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
                 snackbarView.background = ContextCompat.getDrawable(
@@ -360,36 +374,80 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                     R.drawable.gameplay_hint_snackbar
                 )
                 snackbarView.elevation = resources.getDimension(R.dimen.gameplay_board_elevation)
-                snackbarView.setPadding(dp(4), dp(24), dp(4), 0)
+                snackbarView.setPadding(dp(4), 0, dp(4), 0)
+                snackbarView.isClickable = true
+                snackbarView.isFocusable = false
+                snackbarView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                snackbarView.setOnClickListener { onHintsButtonClicked() }
                 val messageView = snackbarView.findViewById<TextView>(
                     com.google.android.material.R.id.snackbar_text
                 )
+                val actionView = snackbarView.findViewById<TextView>(
+                    com.google.android.material.R.id.snackbar_action
+                )
+                val materialContent = messageView.parent as ViewGroup
+                materialContent.removeView(messageView)
+                materialContent.removeView(actionView)
+                (snackbarView as ViewGroup).removeView(materialContent)
+                val overlayContent = FrameLayout(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
                 messageView.apply {
                     ellipsize = null
                     setTextColor(ContextCompat.getColor(this@MainActivity, R.color.gameplay_ink))
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                     typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ubuntu_regular)
                         ?: Typeface.create("sans-serif", Typeface.NORMAL)
+                    includeFontPadding = false
+                    setPadding(paddingLeft, 0, paddingRight, 0)
                     setLineSpacing(0f, 1f)
                     maxHeight = (resources.displayMetrics.heightPixels * 0.3f)
                         .roundToInt()
                         .coerceAtLeast(dp(72))
                     movementMethod = ScrollingMovementMethod.getInstance()
                     isVerticalScrollBarEnabled = true
-                    this.text = styledHintText(text)
+                    setOnClickListener { onHintsButtonClicked() }
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    ).apply {
+                        marginStart = resources.getDimensionPixelSize(
+                            R.dimen.gameplay_hint_padding
+                        )
+                        marginEnd = dp(96)
+                        topMargin = dp(22)
+                        bottomMargin = resources.getDimensionPixelSize(
+                            R.dimen.gameplay_vertical_inset
+                        )
+                    }
                 }
-                snackbarView.findViewById<TextView>(
-                    com.google.android.material.R.id.snackbar_action
-                ).apply {
+                ViewCompat.replaceAccessibilityAction(
+                    messageView,
+                    AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,
+                    getString(R.string.gameplay_hint_advance_accessibility)
+                ) { _, _ ->
+                    onHintsButtonClicked()
+                    true
+                }
+                actionView.apply {
                     setTextColor(ContextCompat.getColor(this@MainActivity, R.color.zen_primary))
                     typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ubuntu_medium)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    minimumWidth = 0
                     minimumHeight = dp(48)
+                    setPadding(dp(4), 0, dp(4), 0)
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(48),
+                        Gravity.END or Gravity.CENTER_VERTICAL
+                    ).apply {
+                        marginEnd = dp(6)
+                    }
                 }
-                val stage = getString(hintStageLabel(result))
-                messageView.contentDescription = "$stage. $text"
-                (snackbarView as? ViewGroup)?.addView(
-                    TextView(this).apply {
-                        this.text = stage
+                hintStageView = TextView(this).apply {
                         setTextColor(
                             ContextCompat.getColor(this@MainActivity, R.color.gameplay_ink_muted)
                         )
@@ -400,6 +458,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                         )
                         letterSpacing = 0.08f
                         isAllCaps = true
+                        includeFontPadding = false
                         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -412,116 +471,143 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                             topMargin = dp(4)
                         }
                     }
-                )
+                overlayContent.addView(messageView)
+                overlayContent.addView(actionView)
+                overlayContent.addView(hintStageView)
+                overlayContent.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                    val stageView = hintStageView ?: return@addOnLayoutChangeListener
+                    val actionMargins = actionView.layoutParams as FrameLayout.LayoutParams
+                    val reservedEnd = actionView.width + actionMargins.marginEnd + dp(8)
+                    val messageMargins = messageView.layoutParams as FrameLayout.LayoutParams
+                    val stageMargins = stageView.layoutParams as FrameLayout.LayoutParams
+                    val messageTop = stageView.bottom + dp(2)
+                    var needsLayout = false
+                    if (messageMargins.marginEnd != reservedEnd) {
+                        messageMargins.marginEnd = reservedEnd
+                        needsLayout = true
+                    }
+                    if (messageMargins.topMargin != messageTop) {
+                        messageMargins.topMargin = messageTop
+                        needsLayout = true
+                    }
+                    if (stageMargins.marginEnd != reservedEnd) {
+                        stageMargins.marginEnd = reservedEnd
+                        needsLayout = true
+                    }
+                    if (needsLayout) {
+                        messageView.layoutParams = messageMargins
+                        stageView.layoutParams = stageMargins
+                    }
+                }
+                snackbarView.addView(overlayContent)
                 snackbar.addCallback(
                     object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
                         override fun onShown(transientBottomBar: Snackbar) {
                             if (hintSnackbar === transientBottomBar) {
-                                hintSnackbarShown = true
-                                reflowForHint(transientBottomBar)
+                                positionHintOverlay(transientBottomBar)
                             }
                         }
 
                         override fun onDismissed(transientBottomBar: Snackbar, event: Int) {
                             if (hintSnackbar === transientBottomBar) {
                                 hintSnackbar = null
-                                clearHintReflow()
+                                clearHintOverlayState()
                             }
                         }
                     }
                 )
-                snackbarView.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
-                    val heightChanged = bottom - top != oldBottom - oldTop
-                    if (heightChanged || top != oldTop || bottom != oldBottom) {
-                        reflowForHint(snackbar)
-                    }
+                snackbarView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                    positionHintOverlay(snackbar)
                 }
+                setCoveredUtilityActionsObscured(true)
+                updateHintOverlay(snackbar, result, text)
                 snackbar.show()
-                reflowForHint(snackbar)
+                positionHintOverlay(snackbar)
             }
     }
 
-    private fun reflowForHint(snackbar: Snackbar) {
+    private fun updateHintOverlay(
+        snackbar: Snackbar,
+        result: LogicalHintResult,
+        text: String
+    ) {
+        val stage = getString(hintStageLabel(result))
+        snackbar.view.findViewById<TextView>(
+            com.google.android.material.R.id.snackbar_text
+        ).apply {
+            this.text = styledHintText(text)
+            contentDescription = "$stage. $text"
+            scrollTo(0, 0)
+        }
+        hintStageView?.text = stage
+    }
+
+    private fun positionHintOverlay(snackbar: Snackbar) {
         val snackbarView = snackbar.view
         snackbarView.post {
-            if (hintSnackbar !== snackbar || !::gameplayContent.isInitialized) return@post
-            if (!hintReflowActive) {
-                hintScrollPosition = gameplayScroll.scrollY
-                hintReflowActive = true
+            if (hintSnackbar !== snackbar || snackbarView.parent == null) return@post
+            val boardLocation = IntArray(2)
+            val controlsLocation = IntArray(2)
+            sudokuBoardView.getLocationOnScreen(boardLocation)
+            sudokuControlView.getLocationOnScreen(controlsLocation)
+            val edgeGap = resources.getDimensionPixelSize(R.dimen.gameplay_vertical_inset)
+            val targetTop = boardLocation[1] + sudokuBoardView.height + edgeGap
+            val keypadTop = controlsLocation[1] +
+                resources.getDimensionPixelSize(R.dimen.gameplay_utility_height) +
+                resources.getDimensionPixelSize(R.dimen.gameplay_utility_gap)
+            val targetHeight = (keypadTop - edgeGap - targetTop).coerceAtLeast(dp(48))
+            val targetWidth = sudokuBoardView.width
+            val layoutParams = snackbarView.layoutParams
+            if (layoutParams.width != targetWidth || layoutParams.height != targetHeight) {
+                layoutParams.width = targetWidth
+                layoutParams.height = targetHeight
+                snackbarView.layoutParams = layoutParams
+                snackbarView.requestLayout()
+                snackbarView.post { positionHintOverlay(snackbar) }
+                return@post
             }
-            keepHintInsideRoot(snackbarView)
-            val gap = resources.getDimensionPixelSize(R.dimen.gameplay_hint_reflow_gap)
-            val scrollLocation = IntArray(2)
             val hintLocation = IntArray(2)
-            gameplayScroll.getLocationOnScreen(scrollLocation)
             snackbarView.getLocationOnScreen(hintLocation)
-            val scrollBottom = scrollLocation[1] + gameplayScroll.height
-            val hintBottom = hintLocation[1] + snackbarView.height
-            val trailingInset = (scrollBottom - hintBottom).coerceAtLeast(0)
-            gameplayContent.setPadding(
-                gameplayContent.paddingLeft,
-                gameplayContent.paddingTop,
-                gameplayContent.paddingRight,
-                gameplayContentBaseBottomPadding + snackbarView.height + gap + trailingInset
-            )
-            gameplayContent.viewTreeObserver.addOnGlobalLayoutListener(
-                object : ViewTreeObserver.OnGlobalLayoutListener {
-                    override fun onGlobalLayout() {
-                        if (gameplayContent.viewTreeObserver.isAlive) {
-                            gameplayContent.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        }
-                        scrollGameplayClearOfHint(snackbar, gap)
+            snackbarView.translationX += (boardLocation[0] - hintLocation[0]).toFloat()
+            snackbarView.translationY += (targetTop - hintLocation[1]).toFloat()
+        }
+    }
+
+    private fun setCoveredUtilityActionsObscured(obscured: Boolean) {
+        if (obscured) {
+            if (coveredUtilityActionStates != null) return
+            coveredUtilityActionStates = listOf(
+                R.id.gameplayNotesAction,
+                R.id.gameplayHintAction,
+                R.id.gameplayEraseAction
+            ).map { id ->
+                findViewById<View>(id).let { view ->
+                    CoveredUtilityActionState(
+                        view = view,
+                        importantForAccessibility = view.importantForAccessibility,
+                        isClickable = view.isClickable,
+                        isFocusable = view.isFocusable
+                    ).also {
+                        view.importantForAccessibility =
+                            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                        view.isClickable = false
+                        view.isFocusable = false
                     }
                 }
-            )
-            gameplayContent.requestLayout()
+            }
+            return
         }
-    }
-
-    private fun keepHintInsideRoot(snackbarView: View) {
-        if (!hintSnackbarShown) return
-        val root = findViewById<View>(R.id.bg)
-        val rootLocation = IntArray(2)
-        val hintLocation = IntArray(2)
-        root.getLocationOnScreen(rootLocation)
-        snackbarView.getLocationOnScreen(hintLocation)
-        val rootBottom = rootLocation[1] + root.height
-        val uncorrectedHintBottom =
-            hintLocation[1] + snackbarView.height - hintRootCorrection
-        val desiredCorrection = -(
-            uncorrectedHintBottom - rootBottom
-        ).coerceAtLeast(0f)
-        val baseTranslation = snackbarView.translationY - hintRootCorrection
-        hintRootCorrection = desiredCorrection
-        snackbarView.translationY = baseTranslation + hintRootCorrection
-    }
-
-    private fun scrollGameplayClearOfHint(snackbar: Snackbar, gap: Int) {
-        if (hintSnackbar !== snackbar || !hintSnackbarShown) return
-        val controlsLocation = IntArray(2)
-        val hintLocation = IntArray(2)
-        sudokuControlView.getLocationOnScreen(controlsLocation)
-        snackbar.view.getLocationOnScreen(hintLocation)
-        val controlsBottom = controlsLocation[1] + sudokuControlView.height
-        val requiredScroll = controlsBottom + gap - hintLocation[1]
-        if (requiredScroll != 0) {
-            gameplayScroll.scrollBy(0, requiredScroll)
+        coveredUtilityActionStates?.forEach { state ->
+            state.view.importantForAccessibility = state.importantForAccessibility
+            state.view.isClickable = state.isClickable
+            state.view.isFocusable = state.isFocusable
         }
+        coveredUtilityActionStates = null
     }
 
-    private fun clearHintReflow() {
-        hintSnackbarShown = false
-        hintRootCorrection = 0f
-        if (!::gameplayContent.isInitialized || !hintReflowActive) return
-        gameplayContent.setPadding(
-            gameplayContent.paddingLeft,
-            gameplayContent.paddingTop,
-            gameplayContent.paddingRight,
-            gameplayContentBaseBottomPadding
-        )
-        gameplayContent.requestLayout()
-        gameplayScroll.post { gameplayScroll.scrollTo(0, hintScrollPosition) }
-        hintReflowActive = false
+    private fun clearHintOverlayState() {
+        hintStageView = null
+        setCoveredUtilityActionsObscured(false)
     }
 
     private fun styledHintText(text: String): CharSequence {
@@ -981,7 +1067,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         val snackbar = hintSnackbar
         hintSnackbar = null
         snackbar?.dismiss()
-        clearHintReflow()
+        clearHintOverlayState()
         pauseDialog?.dismiss()
         completionDialog?.dismiss()
         super.onDestroy()

@@ -56,6 +56,7 @@
     <string name="gameplay_notes_locked_label">Notes locked</string>
     <string name="gameplay_notes_locked_state">Unavailable because Auto Notes is on</string>
     <string name="gameplay_hint_dismiss">Dismiss</string>
+    <string name="gameplay_hint_advance_accessibility">Show next hint detail</string>
     <string name="gameplay_hint_stage_technique">Hint 1 of 3: technique</string>
     <string name="gameplay_hint_stage_evidence">Hint 2 of 3: evidence</string>
     <string name="gameplay_hint_stage_action">Hint 3 of 3: next move</string>

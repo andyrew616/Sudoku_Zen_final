@@ -260,17 +260,36 @@ class UiPolishDeviceTest {
         try {
             val viewModel = viewModel(activity)
             waitUntilReady(viewModel)
+            val ordinaryHintShouldFitWithoutScrolling =
+                activity.resources.configuration.screenHeightDp >= 700
+            val originalPositions = gameplayAnchorPositions(activity)
+            val utilityActions = utilityActions(activity)
+            val originalAccessibility = utilityActions.associateWith {
+                it.importantForAccessibility
+            }
+            val originalFocusable = utilityActions.associateWith { it.isFocusable }
             onMain { viewModel.provideHint() }
 
             val result = viewModel.logicalHintResult.value as LogicalHintResult.Available
             val expectedText = LogicalHintTextFormatter(activity).format(result.hint)
             val snackbar = waitForSnackbar(activity)
-            waitForHintClearOfKeypad(activity, snackbar)
+            waitForHintOverlay(activity, snackbar)
+            assertGameplayAnchorsUnchanged(activity, originalPositions)
             val message = snackbar.view.findViewById<TextView>(
                 com.google.android.material.R.id.snackbar_text
             )
+            waitForHintTextLayout(message, expectedText)
             assertEquals(expectedText, message.text.toString())
             assertEquals(-1, message.maxLines)
+            if (ordinaryHintShouldFitWithoutScrolling) {
+                assertFalse(
+                    "Technique hint scrolls at normal text: height=${message.height} " +
+                        "layoutHeight=${message.layout?.height} lines=${message.lineCount} " +
+                        "padding=${message.totalPaddingTop}+${message.totalPaddingBottom} " +
+                        "scrollY=${message.scrollY} overlay=${snackbar.view.height}",
+                    message.canScrollVertically(1)
+                )
+            }
 
             val stage = activity.getString(R.string.gameplay_hint_stage_technique)
             assertEquals(
@@ -288,40 +307,92 @@ class UiPolishDeviceTest {
                     com.google.android.material.R.id.snackbar_action
                 ).text.toString()
             )
+            assertTrue(snackbar.view.isClickable)
+            utilityActions.forEach { action ->
+                assertFalse(action.isClickable)
+                assertFalse(action.isFocusable)
+                assertEquals(
+                    View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS,
+                    action.importantForAccessibility
+                )
+                assertTrue(snackbar.view.screenBounds().intersectedBy(action.screenBounds()))
+            }
+            val originalOverlayBounds = snackbar.view.screenBounds()
+            val hintsUsedAfterTechnique = viewModel.hintsUsed.value
 
-            onMain {
-                viewModel.provideHint()
-                viewModel.provideHint()
+            onMain { message.performClick() }
+            waitForCondition("Hint did not progress to evidence") {
+                (viewModel.logicalHintResult.value as? LogicalHintResult.Available)
+                    ?.hint?.detailLevel == HintDetailLevel.EVIDENCE
+            }
+            val evidenceSnackbar = waitForSnackbar(activity)
+            assertSame(snackbar, evidenceSnackbar)
+            val evidenceResult = viewModel.logicalHintResult.value as LogicalHintResult.Available
+            val evidenceText = LogicalHintTextFormatter(activity).format(evidenceResult.hint)
+            waitForHintTextLayout(message, evidenceText)
+            waitForHintOverlay(activity, evidenceSnackbar)
+            assertEquals(originalOverlayBounds, evidenceSnackbar.view.screenBounds())
+            assertGameplayAnchorsUnchanged(activity, originalPositions)
+            if (ordinaryHintShouldFitWithoutScrolling) {
+                assertFalse(
+                    "Evidence hint scrolls at normal text: height=${message.height} " +
+                        "layoutHeight=${message.layout?.height} lines=${message.lineCount} " +
+                        "padding=${message.totalPaddingTop}+${message.totalPaddingBottom}",
+                    message.canScrollVertically(1)
+                )
+            }
+
+            onMain { message.performClick() }
+            waitForCondition("Hint did not progress to action") {
+                (viewModel.logicalHintResult.value as? LogicalHintResult.Available)
+                    ?.hint?.detailLevel == HintDetailLevel.ACTION
             }
             val actionResult = viewModel.logicalHintResult.value as LogicalHintResult.Available
             assertEquals(HintDetailLevel.ACTION, actionResult.hint.detailLevel)
             val longestText = LogicalHintTextFormatter(activity).format(actionResult.hint)
             val actionSnackbar = waitForSnackbar(activity)
-            waitForHintClearOfKeypad(activity, actionSnackbar)
+            assertSame(snackbar, actionSnackbar)
+            waitForHintOverlay(activity, actionSnackbar)
+            assertEquals(originalOverlayBounds, actionSnackbar.view.screenBounds())
+            assertGameplayAnchorsUnchanged(activity, originalPositions)
+            assertEquals(hintsUsedAfterTechnique, viewModel.hintsUsed.value)
             val actionMessage = actionSnackbar.view.findViewById<TextView>(
                 com.google.android.material.R.id.snackbar_text
             )
             val actionButton = actionSnackbar.view.findViewById<TextView>(
                 com.google.android.material.R.id.snackbar_action
             )
+            val actionStage = descendants(actionSnackbar.view)
+                .filterIsInstance<TextView>()
+                .first {
+                    it.text.toString() == activity.getString(
+                        R.string.gameplay_hint_stage_action
+                    )
+            }
+            waitForHintTextLayout(actionMessage, longestText)
             assertEquals(longestText, actionMessage.text.toString())
-            val compactHintWidth = dp(activity, 240)
+            if (ordinaryHintShouldFitWithoutScrolling) {
+                assertFalse(actionMessage.canScrollVertically(1))
+            }
             onMain {
-                actionMessage.setTextSize(
-                    TypedValue.COMPLEX_UNIT_PX,
-                    actionMessage.textSize * 1.3f
-                )
-                actionSnackbar.view.layoutParams = actionSnackbar.view.layoutParams.apply {
-                    width = compactHintWidth
+                listOf(actionMessage, actionStage, actionButton).forEach { hintText ->
+                    hintText.setTextSize(
+                        TypedValue.COMPLEX_UNIT_PX,
+                        hintText.textSize * 1.7f
+                    )
                 }
                 actionSnackbar.view.requestLayout()
             }
-            waitForCondition("Hint did not complete its compact enlarged-text layout") {
-                actionSnackbar.view.width == compactHintWidth &&
-                    actionMessage.layout != null &&
-                    actionMessage.lineCount > 1
+            waitForCondition("Hint did not complete its enlarged-text layout") {
+                actionMessage.layout != null &&
+                    actionMessage.lineCount > 1 &&
+                    !actionMessage.screenBounds().intersectedBy(actionButton.screenBounds()) &&
+                    !actionStage.screenBounds().intersectedBy(actionButton.screenBounds()) &&
+                    !actionStage.screenBounds().intersectedBy(actionMessage.screenBounds())
             }
-            waitForHintClearOfKeypad(activity, actionSnackbar)
+            waitForHintOverlay(activity, actionSnackbar)
+            assertEquals(originalOverlayBounds, actionSnackbar.view.screenBounds())
+            assertGameplayAnchorsUnchanged(activity, originalPositions)
             assertEquals(-1, actionMessage.maxLines)
             assertTrue(actionMessage.lineCount > 1)
             for (line in 0 until actionMessage.lineCount) {
@@ -339,20 +410,26 @@ class UiPolishDeviceTest {
             val rootBounds = activity.findViewById<View>(R.id.bg).visibleBounds()
             val hintBounds = actionSnackbar.view.visibleBounds()
             val actionBounds = actionButton.visibleBounds()
+            val stageBounds = actionStage.visibleBounds()
+            val messageBounds = actionMessage.visibleBounds()
             assertEquals(actionSnackbar.view.height, hintBounds.height())
             assertTrue(rootBounds.contains(hintBounds))
             assertTrue(hintBounds.contains(actionBounds))
+            assertTrue(hintBounds.contains(stageBounds))
+            assertTrue(hintBounds.contains(messageBounds))
+            assertFalse(messageBounds.intersectedBy(actionBounds))
+            assertFalse(stageBounds.intersectedBy(actionBounds))
+            assertFalse(stageBounds.intersectedBy(messageBounds))
             assertTrue(actionButton.height >= dp(activity, 48))
 
-            val content = activity.findViewById<View>(R.id.gameplayContent)
-            val scroll = activity.findViewById<NestedScrollView>(R.id.gameplayScroll)
             onMain { actionButton.performClick() }
-            waitForCondition("Hint dismissal did not restore gameplay layout") {
-                hintSnackbar(activity) == null &&
-                    content.paddingBottom == activity.resources.getDimensionPixelSize(
-                        R.dimen.gameplay_vertical_inset
-                    ) &&
-                    scroll.scrollY == 0
+            waitForCondition("Hint dismissal did not restore covered controls") {
+                hintSnackbar(activity) == null && utilityActions.all { it.isClickable }
+            }
+            assertGameplayAnchorsUnchanged(activity, originalPositions)
+            utilityActions.forEach { action ->
+                assertEquals(originalAccessibility.getValue(action), action.importantForAccessibility)
+                assertEquals(originalFocusable.getValue(action), action.isFocusable)
             }
         } finally {
             close(activity)
@@ -605,24 +682,70 @@ class UiPolishDeviceTest {
             .apply { isAccessible = true }
             .get(activity) as Snackbar?
 
-    private fun waitForHintClearOfKeypad(activity: MainActivity, snackbar: Snackbar) {
+    private fun waitForHintTextLayout(message: TextView, expectedText: String) {
+        waitForCondition("Hint text did not complete its layout pass") {
+            message.text.toString() == expectedText &&
+                message.layout?.text?.toString() == expectedText
+        }
+    }
+
+    private data class GameplayAnchorPositions(
+        val header: Rect,
+        val board: Rect,
+        val controls: Rect,
+        val numberKeys: List<Rect>,
+        val scrollY: Int,
+        val contentPaddingBottom: Int
+    )
+
+    private fun gameplayAnchorPositions(activity: MainActivity): GameplayAnchorPositions =
+        GameplayAnchorPositions(
+            header = activity.findViewById<View>(R.id.gameplayHeader).screenBounds(),
+            board = activity.findViewById<View>(R.id.sudokuBoardView).screenBounds(),
+            controls = activity.findViewById<View>(R.id.sudokuControlView).screenBounds(),
+            numberKeys = numberKeys(activity).map { it.screenBounds() },
+            scrollY = activity.findViewById<NestedScrollView>(R.id.gameplayScroll).scrollY,
+            contentPaddingBottom = activity.findViewById<View>(R.id.gameplayContent).paddingBottom
+        )
+
+    private fun assertGameplayAnchorsUnchanged(
+        activity: MainActivity,
+        expected: GameplayAnchorPositions
+    ) {
+        assertEquals(expected, gameplayAnchorPositions(activity))
+    }
+
+    private fun utilityActions(activity: MainActivity): List<View> = listOf(
+        activity.findViewById(R.id.gameplayNotesAction),
+        activity.findViewById(R.id.gameplayHintAction),
+        activity.findViewById(R.id.gameplayEraseAction)
+    )
+
+    private fun waitForHintOverlay(activity: MainActivity, snackbar: Snackbar) {
         val deadline = SystemClock.elapsedRealtime() + 3_000L
-        val gap = dp(activity, 12)
         while (SystemClock.elapsedRealtime() < deadline) {
             instrumentation.waitForIdleSync()
-            val keypadBottom = numberKeys(activity).maxOfOrNull { it.bottomOnScreen() }
-            val hintTop = snackbar.view.topOnScreen()
-            if (keypadBottom != null && keypadBottom + gap <= hintTop) return
+            val boardBounds = activity.findViewById<View>(R.id.sudokuBoardView).screenBounds()
+            val keypadTop = numberKeys(activity).minOfOrNull { it.topOnScreen() }
+            val hintBounds = snackbar.view.screenBounds()
+            if (
+                keypadTop != null &&
+                hintBounds.top >= boardBounds.bottom &&
+                hintBounds.bottom <= keypadTop &&
+                hintBounds.width() == boardBounds.width() &&
+                snackbar.view.alpha == 1f &&
+                snackbar.view.scaleX == 1f &&
+                snackbar.view.scaleY == 1f
+            ) return
             Thread.sleep(20L)
         }
-        val keypadBottom = numberKeys(activity).maxOfOrNull { it.bottomOnScreen() }
+        val boardBounds = activity.findViewById<View>(R.id.sudokuBoardView).screenBounds()
+        val keypadTop = numberKeys(activity).minOfOrNull { it.topOnScreen() }
         val scroll = activity.findViewById<NestedScrollView>(R.id.gameplayScroll)
-        val content = activity.findViewById<View>(R.id.gameplayContent)
         error(
-            "Hint overlaps keypad: keypadBottom=$keypadBottom " +
-                "hintTop=${snackbar.view.topOnScreen()} hintHeight=${snackbar.view.height} " +
-                "scrollY=${scroll.scrollY} viewport=${scroll.height} content=${content.height} " +
-                "paddingBottom=${content.paddingBottom} canScrollDown=${scroll.canScrollVertically(1)}"
+            "Hint is not fixed between board and keypad: board=$boardBounds " +
+                "hint=${snackbar.view.screenBounds()} keypadTop=$keypadTop " +
+                "scrollY=${scroll.scrollY}"
         )
     }
 
@@ -749,6 +872,14 @@ class UiPolishDeviceTest {
     }
 
     private fun View.bottomOnScreen(): Int = topOnScreen() + height
+
+    private fun View.screenBounds(): Rect {
+        val location = IntArray(2)
+        getLocationOnScreen(location)
+        return Rect(location[0], location[1], location[0] + width, location[1] + height)
+    }
+
+    private fun Rect.intersectedBy(other: Rect): Boolean = Rect.intersects(this, other)
 
     private fun View.parentView(): View = parent as View
 
