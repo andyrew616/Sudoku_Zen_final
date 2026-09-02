@@ -7,17 +7,33 @@ import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.media.SoundPool
+import android.os.Build
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.method.ScrollingMovementMethod
+import android.text.style.StyleSpan
+import android.graphics.Typeface
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.widget.NestedScrollView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.ads.interstitial.InterstitialAd
@@ -28,6 +44,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.snackbar.BaseTransientBottomBar
+import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedListener, TimerListener {
     companion object {
@@ -38,6 +56,8 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         private const val PREF_SAVED_DIFFICULTY = "saved_game_difficulty"
         private const val STATE_ACTIVE_GAME = "gameplay_active_game"
         private const val STATE_REQUESTED_DIFFICULTY = "gameplay_requested_difficulty"
+        private const val STATE_TIMER_SECONDS = "gameplay_timer_seconds"
+        private const val STATE_PAUSED = "gameplay_paused"
     }
     private var mInterstitialAdCompletion: InterstitialAd? = null
     private var mInterstitialAdOnExit: InterstitialAd? = null
@@ -48,16 +68,18 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private var notesMode = false
     private var autoNotesEnabled = false
     private var soundEffectsOn: Boolean = false
-    private var hintCount = 0
-    private lateinit var currentTime: String
+    private var currentTime: String = ""
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var timer: Timer
     private lateinit var sudokuControlView: SudokuControlView
     private lateinit var sudokuBoardView: SudokuBoardView
+    private lateinit var gameplayScroll: NestedScrollView
     private lateinit var timerTextView: TextView
     private lateinit var hintsCountTextView: TextView
     private lateinit var modeTextView: TextView
+    private lateinit var difficultyTimeLabel: TextView
     private lateinit var pauseButton: ImageView
+    private lateinit var adView: AdView
     private lateinit var generationOverlay: View
     private lateinit var generationProgress: ProgressBar
     private lateinit var generationStatusText: TextView
@@ -66,10 +88,21 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private lateinit var viewModel: SudokuViewModel
     private var gameplayDifficulty: SudokuDifficulty? = null
     private var hintSnackbar: Snackbar? = null
+    private var hintStageView: TextView? = null
+    private var coveredUtilityActionStates: List<CoveredUtilityActionState>? = null
+    private var pauseDialog: Dialog? = null
+    private var completionDialog: Dialog? = null
     private var lastAutoNotesBoard: SudokuBoard? = null
     private var lastAutoNotesValues: IntArray? = null
     private var lastAutoNotesEditableCells: BooleanArray? = null
     private val hintTextFormatter by lazy { LogicalHintTextFormatter(this) }
+
+    private data class CoveredUtilityActionState(
+        val view: View,
+        val importantForAccessibility: Int,
+        val isClickable: Boolean,
+        val isFocusable: Boolean
+    )
 
     private val onBackPressedCallback: OnBackPressedCallback =
         object : OnBackPressedCallback(true) {
@@ -100,9 +133,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         setContentView(R.layout.sudoku_board_view)
 
         val root = findViewById<android.view.View>(R.id.bg)
+        enterImmersiveGameplay(window)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            val displayCutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            v.setPadding(displayCutout.left, displayCutout.top, displayCutout.right, 0)
             insets
         }
 
@@ -110,6 +144,8 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         setupSharedPreferences()
         val explicitResume = intent.getBooleanExtra("Resume", false)
         val activityRecreation = savedInstanceState != null
+        val restorePauseAfterRecreation =
+            savedInstanceState?.getBoolean(STATE_PAUSED) == true
         val launchMode = GameplayLaunchPolicy.mode(
             explicitResume = explicitResume,
             activityRecreation = activityRecreation,
@@ -142,9 +178,9 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         setupViews()
         setupSound()
         timer = Timer(this)
+        restoreTimerSnapshot(savedInstanceState?.getInt(STATE_TIMER_SECONDS) ?: 0)
         setupViewModel()
 
-        val adView = findViewById<AdView>(R.id.adView)
         val bannerHeight = adView.adSize?.getHeightInPixels(this) ?: 0
         var hasRenderedBanner = false
 
@@ -187,7 +223,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                     val game = loadGame()
                     if (game != null) {
                         viewModel.setHintsUsed(game.hintsUsed)
-                        timer.seconds = game.timeElapsed.toInt()
+                        restoreTimerSnapshot(game.timeElapsed)
                         viewModel.setBoard(game.board)
                     } else {
                         viewModel.reportResumeUnavailable()
@@ -216,6 +252,12 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
             timer.start()
         }
+        if (
+            restorePauseAfterRecreation &&
+            viewModel.gameplayLoadState.value is GameplayLoadState.Ready
+        ) {
+            showPauseMenu(playFeedback = false)
+        }
 
 
     }
@@ -223,15 +265,29 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private fun setupViews() {
         sudokuBoardView = findViewById(R.id.sudokuBoardView)
         sudokuControlView = findViewById(R.id.sudokuControlView)
+        gameplayScroll = findViewById(R.id.gameplayScroll)
         timerTextView = findViewById(R.id.timerTextView)
         hintsCountTextView = findViewById(R.id.hintsCountTextView)
         modeTextView = findViewById(R.id.modeTextView)
+        difficultyTimeLabel = findViewById(R.id.difficultyTimeLabel)
         pauseButton = findViewById(R.id.pauseButton)
+        adView = findViewById(R.id.adView)
         generationOverlay = findViewById(R.id.generationOverlay)
         generationProgress = findViewById(R.id.generationProgress)
         generationStatusText = findViewById(R.id.generationStatusText)
         generationRetryButton = findViewById(R.id.generationRetryButton)
         generationBackButton = findViewById(R.id.generationBackButton)
+        sudokuBoardView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            hintSnackbar?.let(::positionHintOverlay)
+        }
+        sudokuControlView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            hintSnackbar?.let(::positionHintOverlay)
+        }
+        gameplayScroll.setOnScrollChangeListener(
+            NestedScrollView.OnScrollChangeListener { _, _, _, _, _ ->
+                hintSnackbar?.let(::positionHintOverlay)
+            }
+        )
 
         sudokuControlView.listener = this
         sudokuBoardView.cellSelectedListener = this
@@ -246,6 +302,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         generationBackButton.setOnClickListener {
             exit()
         }
+        renderDifficultyLabel()
         applyAutoNotesPreference(autoNotesEnabled, forceRecompute = false)
     }
 
@@ -268,8 +325,10 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     private fun renderLogicalHintResult(result: LogicalHintResult?) {
         if (result == null) {
             sudokuBoardView.setHintHighlights(emptyList())
-            hintSnackbar?.dismiss()
+            val snackbar = hintSnackbar
             hintSnackbar = null
+            snackbar?.dismiss()
+            clearHintOverlayState()
             return
         }
 
@@ -296,16 +355,282 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             }
         }
 
-        hintSnackbar?.dismiss()
+        hintSnackbar?.let { snackbar ->
+            updateHintOverlay(snackbar, result, text)
+            positionHintOverlay(snackbar)
+            return
+        }
+
         hintSnackbar = Snackbar.make(findViewById(R.id.bg), text, Snackbar.LENGTH_INDEFINITE)
-            .setAnchorView(sudokuControlView)
-            .also { snackbar ->
-                snackbar.view.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-                snackbar.view.findViewById<TextView>(
-                    com.google.android.material.R.id.snackbar_text
-                ).maxLines = 10
-                snackbar.show()
+            .setAction(R.string.gameplay_hint_dismiss) {
+                sudokuBoardView.setHintHighlights(emptyList())
             }
+            .also { snackbar ->
+                snackbar.animationMode = BaseTransientBottomBar.ANIMATION_MODE_FADE
+                val snackbarView = snackbar.view
+                snackbarView.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+                snackbarView.background = ContextCompat.getDrawable(
+                    this,
+                    R.drawable.gameplay_hint_snackbar
+                )
+                snackbarView.elevation = resources.getDimension(R.dimen.gameplay_board_elevation)
+                snackbarView.setPadding(dp(4), 0, dp(4), 0)
+                snackbarView.isClickable = true
+                snackbarView.isFocusable = false
+                snackbarView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                snackbarView.setOnClickListener { onHintsButtonClicked() }
+                val messageView = snackbarView.findViewById<TextView>(
+                    com.google.android.material.R.id.snackbar_text
+                )
+                val actionView = snackbarView.findViewById<TextView>(
+                    com.google.android.material.R.id.snackbar_action
+                )
+                val materialContent = messageView.parent as ViewGroup
+                materialContent.removeView(messageView)
+                materialContent.removeView(actionView)
+                (snackbarView as ViewGroup).removeView(materialContent)
+                val overlayContent = FrameLayout(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+                messageView.apply {
+                    ellipsize = null
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.gameplay_ink))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ubuntu_regular)
+                        ?: Typeface.create("sans-serif", Typeface.NORMAL)
+                    includeFontPadding = false
+                    setPadding(paddingLeft, 0, paddingRight, 0)
+                    setLineSpacing(0f, 1f)
+                    maxHeight = (resources.displayMetrics.heightPixels * 0.3f)
+                        .roundToInt()
+                        .coerceAtLeast(dp(72))
+                    movementMethod = ScrollingMovementMethod.getInstance()
+                    isVerticalScrollBarEnabled = true
+                    setOnClickListener { onHintsButtonClicked() }
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    ).apply {
+                        marginStart = resources.getDimensionPixelSize(
+                            R.dimen.gameplay_hint_padding
+                        )
+                        marginEnd = dp(96)
+                        topMargin = dp(22)
+                        bottomMargin = resources.getDimensionPixelSize(
+                            R.dimen.gameplay_vertical_inset
+                        )
+                    }
+                }
+                ViewCompat.replaceAccessibilityAction(
+                    messageView,
+                    AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,
+                    getString(R.string.gameplay_hint_advance_accessibility)
+                ) { _, _ ->
+                    onHintsButtonClicked()
+                    true
+                }
+                actionView.apply {
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.zen_primary))
+                    typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ubuntu_medium)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    minimumWidth = 0
+                    minimumHeight = dp(48)
+                    setPadding(dp(4), 0, dp(4), 0)
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(48),
+                        Gravity.END or Gravity.CENTER_VERTICAL
+                    ).apply {
+                        marginEnd = dp(6)
+                    }
+                }
+                hintStageView = TextView(this).apply {
+                        setTextColor(
+                            ContextCompat.getColor(this@MainActivity, R.color.gameplay_ink_muted)
+                        )
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                        typeface = ResourcesCompat.getFont(
+                            this@MainActivity,
+                            R.font.ubuntu_medium
+                        )
+                        letterSpacing = 0.08f
+                        isAllCaps = true
+                        includeFontPadding = false
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            Gravity.TOP or Gravity.START
+                        ).apply {
+                            marginStart = resources.getDimensionPixelSize(
+                                R.dimen.gameplay_hint_padding
+                            )
+                            topMargin = dp(4)
+                        }
+                    }
+                overlayContent.addView(messageView)
+                overlayContent.addView(actionView)
+                overlayContent.addView(hintStageView)
+                overlayContent.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                    val stageView = hintStageView ?: return@addOnLayoutChangeListener
+                    val actionMargins = actionView.layoutParams as FrameLayout.LayoutParams
+                    val reservedEnd = actionView.width + actionMargins.marginEnd + dp(8)
+                    val messageMargins = messageView.layoutParams as FrameLayout.LayoutParams
+                    val stageMargins = stageView.layoutParams as FrameLayout.LayoutParams
+                    val messageTop = stageView.bottom + dp(2)
+                    var needsLayout = false
+                    if (messageMargins.marginEnd != reservedEnd) {
+                        messageMargins.marginEnd = reservedEnd
+                        needsLayout = true
+                    }
+                    if (messageMargins.topMargin != messageTop) {
+                        messageMargins.topMargin = messageTop
+                        needsLayout = true
+                    }
+                    if (stageMargins.marginEnd != reservedEnd) {
+                        stageMargins.marginEnd = reservedEnd
+                        needsLayout = true
+                    }
+                    if (needsLayout) {
+                        messageView.layoutParams = messageMargins
+                        stageView.layoutParams = stageMargins
+                    }
+                }
+                snackbarView.addView(overlayContent)
+                snackbar.addCallback(
+                    object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
+                        override fun onShown(transientBottomBar: Snackbar) {
+                            if (hintSnackbar === transientBottomBar) {
+                                positionHintOverlay(transientBottomBar)
+                            }
+                        }
+
+                        override fun onDismissed(transientBottomBar: Snackbar, event: Int) {
+                            if (hintSnackbar === transientBottomBar) {
+                                hintSnackbar = null
+                                clearHintOverlayState()
+                            }
+                        }
+                    }
+                )
+                snackbarView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                    positionHintOverlay(snackbar)
+                }
+                setCoveredUtilityActionsObscured(true)
+                updateHintOverlay(snackbar, result, text)
+                snackbar.show()
+                positionHintOverlay(snackbar)
+            }
+    }
+
+    private fun updateHintOverlay(
+        snackbar: Snackbar,
+        result: LogicalHintResult,
+        text: String
+    ) {
+        val stage = getString(hintStageLabel(result))
+        snackbar.view.findViewById<TextView>(
+            com.google.android.material.R.id.snackbar_text
+        ).apply {
+            this.text = styledHintText(text)
+            contentDescription = "$stage. $text"
+            scrollTo(0, 0)
+        }
+        hintStageView?.text = stage
+    }
+
+    private fun positionHintOverlay(snackbar: Snackbar) {
+        val snackbarView = snackbar.view
+        snackbarView.post {
+            if (hintSnackbar !== snackbar || snackbarView.parent == null) return@post
+            val boardLocation = IntArray(2)
+            val controlsLocation = IntArray(2)
+            sudokuBoardView.getLocationOnScreen(boardLocation)
+            sudokuControlView.getLocationOnScreen(controlsLocation)
+            val edgeGap = resources.getDimensionPixelSize(R.dimen.gameplay_vertical_inset)
+            val targetTop = boardLocation[1] + sudokuBoardView.height + edgeGap
+            val keypadTop = controlsLocation[1] +
+                resources.getDimensionPixelSize(R.dimen.gameplay_utility_height) +
+                resources.getDimensionPixelSize(R.dimen.gameplay_utility_gap)
+            val targetHeight = (keypadTop - edgeGap - targetTop).coerceAtLeast(dp(48))
+            val targetWidth = sudokuBoardView.width
+            val layoutParams = snackbarView.layoutParams
+            if (layoutParams.width != targetWidth || layoutParams.height != targetHeight) {
+                layoutParams.width = targetWidth
+                layoutParams.height = targetHeight
+                snackbarView.layoutParams = layoutParams
+                snackbarView.requestLayout()
+                snackbarView.post { positionHintOverlay(snackbar) }
+                return@post
+            }
+            val hintLocation = IntArray(2)
+            snackbarView.getLocationOnScreen(hintLocation)
+            snackbarView.translationX += (boardLocation[0] - hintLocation[0]).toFloat()
+            snackbarView.translationY += (targetTop - hintLocation[1]).toFloat()
+        }
+    }
+
+    private fun setCoveredUtilityActionsObscured(obscured: Boolean) {
+        if (obscured) {
+            if (coveredUtilityActionStates != null) return
+            coveredUtilityActionStates = listOf(
+                R.id.gameplayNotesAction,
+                R.id.gameplayHintAction,
+                R.id.gameplayEraseAction
+            ).map { id ->
+                findViewById<View>(id).let { view ->
+                    CoveredUtilityActionState(
+                        view = view,
+                        importantForAccessibility = view.importantForAccessibility,
+                        isClickable = view.isClickable,
+                        isFocusable = view.isFocusable
+                    ).also {
+                        view.importantForAccessibility =
+                            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                        view.isClickable = false
+                        view.isFocusable = false
+                    }
+                }
+            }
+            return
+        }
+        coveredUtilityActionStates?.forEach { state ->
+            state.view.importantForAccessibility = state.importantForAccessibility
+            state.view.isClickable = state.isClickable
+            state.view.isFocusable = state.isFocusable
+        }
+        coveredUtilityActionStates = null
+    }
+
+    private fun clearHintOverlayState() {
+        hintStageView = null
+        setCoveredUtilityActionsObscured(false)
+    }
+
+    private fun styledHintText(text: String): CharSequence {
+        val styled = SpannableString(text)
+        val firstSentenceEnd = text.indexOf('.').let { if (it >= 0) it + 1 else text.length }
+        if (firstSentenceEnd > 0) {
+            styled.setSpan(
+                StyleSpan(Typeface.BOLD),
+                0,
+                firstSentenceEnd,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        return styled
+    }
+
+    private fun hintStageLabel(result: LogicalHintResult): Int = when (result) {
+        is LogicalHintResult.Available -> when (result.hint.detailLevel) {
+            HintDetailLevel.TECHNIQUE -> R.string.gameplay_hint_stage_technique
+            HintDetailLevel.EVIDENCE -> R.string.gameplay_hint_stage_evidence
+            HintDetailLevel.ACTION -> R.string.gameplay_hint_stage_action
+        }
+        else -> R.string.gameplay_hint_stage_message
     }
 
     private fun setupSound() {
@@ -333,7 +658,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
         if (viewModel.isBoardCorrect()) {
             timer.pause()
-            showCompletionDialog(hintCount, currentTime)
+            showCompletionDialog(viewModel.hintsUsed.value ?: 0, currentTime)
         }
 
         saveGame()
@@ -344,6 +669,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             GameplayLoadState.Idle,
             is GameplayLoadState.Loading -> {
                 timer.pause()
+                setGameplayAccessibilityHidden(true)
                 generationOverlay.visibility = View.VISIBLE
                 generationProgress.visibility = View.VISIBLE
                 generationStatusText.setText(R.string.gameplay_generating_puzzle)
@@ -352,15 +678,22 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             }
             is GameplayLoadState.Ready -> {
                 gameplayDifficulty = state.requestedDifficulty ?: gameplayDifficulty
+                renderDifficultyLabel()
                 generationOverlay.visibility = View.GONE
                 generationProgress.visibility = View.GONE
+                setGameplayAccessibilityHidden(false)
                 saveGame()
-                if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                if (
+                    lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) &&
+                    pauseDialog?.isShowing != true &&
+                    completionDialog?.isShowing != true
+                ) {
                     timer.start()
                 }
             }
             is GameplayLoadState.Failure -> {
                 timer.pause()
+                setGameplayAccessibilityHidden(true)
                 generationOverlay.visibility = View.VISIBLE
                 generationProgress.visibility = View.GONE
                 generationStatusText.setText(R.string.gameplay_generation_failed)
@@ -372,6 +705,34 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                 generationBackButton.visibility = View.VISIBLE
                 Log.e(TAG, "Gameplay puzzle unavailable: ${state.reason}")
             }
+        }
+    }
+
+    private fun setGameplayAccessibilityHidden(hidden: Boolean) {
+        sudokuBoardView.importantForAccessibility = if (hidden) {
+            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        } else {
+            View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        }
+        sudokuControlView.importantForAccessibility = if (hidden) {
+            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        } else {
+            View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+        }
+    }
+
+    private fun renderDifficultyLabel() {
+        if (!::difficultyTimeLabel.isInitialized) return
+        val label = when (gameplayDifficulty) {
+            SudokuDifficulty.EASY -> getString(R.string.gameplay_difficulty_easy)
+            SudokuDifficulty.MEDIUM -> getString(R.string.gameplay_difficulty_medium)
+            SudokuDifficulty.HARD -> getString(R.string.gameplay_difficulty_hard)
+            SudokuDifficulty.UNSUPPORTED, null -> null
+        }
+        difficultyTimeLabel.text = if (label == null) {
+            getString(R.string.gameplay_difficulty_unknown)
+        } else {
+            getString(R.string.gameplay_difficulty_time, label)
         }
     }
 
@@ -389,11 +750,15 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         timerTextView.text = timerText
         hintsCountTextView.text = getString(R.string.gameplay_numeric_value, hintsCount)
         modeTextView.text = modeText
+        modeTextView.contentDescription = modeText
     }
 
     override fun onNotesModeChanged(notesMode: Boolean) {
         this.notesMode = notesMode && !autoNotesEnabled
         viewModel.setNotesMode(this.notesMode)
+        val modeText = gameplayModeText()
+        modeTextView.text = modeText
+        modeTextView.contentDescription = modeText
         playSound()
     }
 
@@ -426,44 +791,53 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     }
 
     private fun showCompletionDialog(hintsUsed: Int, totalTime: String) {
+        if (completionDialog?.isShowing == true) return
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         dialog.setCancelable(false)
         dialog.setContentView(R.layout.dialog_completion)
 
-        val body = dialog.findViewById(R.id.completionImageView) as ImageView
-        body.setImageResource(R.drawable.ic_lvl_complete_popup)
-
-        val hintsTextView = dialog.findViewById(R.id.hintsUsedTextView) as TextView
-        hintsTextView.text = getString(
-            R.string.gameplay_hints_used,
-            viewModel.hintsUsed.value ?: 0
+        ViewCompat.setAccessibilityPaneTitle(
+            dialog.findViewById(R.id.completionDialogRoot),
+            getString(R.string.completion_title)
+        )
+        ViewCompat.setAccessibilityHeading(
+            dialog.findViewById(R.id.completionDialogTitle),
+            true
         )
 
-        val timeTextView = dialog.findViewById(R.id.totalTimeTextView) as TextView
-        timeTextView.text = "Total time: $totalTime"
-
-        val yesBtn = dialog.findViewById(R.id.nextLevelButton) as ImageView
-        val window = dialog.window
-        if (window != null) {
-            window.setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.findViewById<TextView>(R.id.hintsUsedTextView).text = getString(
+            R.string.completion_hints,
+            hintsUsed
+        )
+        dialog.findViewById<TextView>(R.id.totalTimeTextView).text = getString(
+            R.string.completion_time,
+            totalTime.ifBlank { getString(R.string.gameplay_timer_zero) }
+        )
+        dialog.findViewById<TextView>(R.id.completionDifficultyTextView).apply {
+            val difficulty = difficultyDisplayName()
+            if (difficulty == null) {
+                visibility = View.GONE
+            } else {
+                visibility = View.VISIBLE
+                text = getString(R.string.completion_difficulty, difficulty)
+            }
         }
 
-        yesBtn.setOnClickListener {
+        dialog.findViewById<Button>(R.id.nextLevelButton).setOnClickListener {
             if (mInterstitialAdCompletion != null) {
                 mInterstitialAdCompletion?.show(this)
             } else {
                 Log.d(TAG, "The interstitial ad wasn't ready yet.")
             }
             performPostAdActions(dialog)
-
         }
-
+        dialog.setOnDismissListener {
+            if (completionDialog === dialog) completionDialog = null
+        }
+        completionDialog = dialog
         dialog.show()
+        configureFullscreenDialog(dialog)
     }
 
     private fun performPostAdActions(dialog: Dialog) {
@@ -476,33 +850,33 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         sudokuBoardView.invalidate()
         sudokuBoardView.invalidateAllCells()
         timer.reset() // Reset the timer
+        restoreTimerSnapshot(0)
         playSound()
         dialog.dismiss()
     }
 
-    private fun showPauseMenu() {
+    private fun showPauseMenu(playFeedback: Boolean = true) {
+        if (pauseDialog?.isShowing == true || completionDialog?.isShowing == true) return
         timer.pause()
         saveGame()
-        playSound()
+        if (playFeedback) playSound()
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         dialog.setCancelable(false)
         dialog.setContentView(R.layout.pause_menu)
 
-        val body = dialog.findViewById(R.id.pauseMenuImageView) as ImageView
-        body.setImageResource(R.drawable.ic_menu_cloud)
+        ViewCompat.setAccessibilityPaneTitle(
+            dialog.findViewById(R.id.pauseDialogRoot),
+            getString(R.string.pause_title)
+        )
+        ViewCompat.setAccessibilityHeading(
+            dialog.findViewById(R.id.pauseDialogTitle),
+            true
+        )
 
-        val resumeBtn = dialog.findViewById(R.id.resume_bttn) as ImageView
-        val optionsBtn = dialog.findViewById(R.id.options_bttn) as ImageView
-        val exitBtn = dialog.findViewById(R.id.exit_bttn) as ImageView
-        val window = dialog.window
-        if (window != null) {
-            window.setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        }
+        val resumeBtn = dialog.findViewById<Button>(R.id.resume_bttn)
+        val optionsBtn = dialog.findViewById<Button>(R.id.options_bttn)
+        val exitBtn = dialog.findViewById<Button>(R.id.exit_bttn)
 
         resumeBtn.setOnClickListener {
             if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
@@ -543,10 +917,53 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
             }
         }
-
-
-
+        dialog.setOnDismissListener {
+            if (pauseDialog === dialog) pauseDialog = null
+        }
+        pauseDialog = dialog
         dialog.show()
+        configureFullscreenDialog(dialog)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun configureFullscreenDialog(dialog: Dialog) {
+        dialog.window?.apply {
+            WindowCompat.setDecorFitsSystemWindows(this, false)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                attributes = attributes.apply {
+                    layoutInDisplayCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    } else {
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    }
+                }
+            }
+            setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            statusBarColor = Color.TRANSPARENT
+            navigationBarColor = Color.TRANSPARENT
+            enterImmersiveGameplay(this)
+        }
+    }
+
+    private fun enterImmersiveGameplay(targetWindow: Window) {
+        WindowInsetsControllerCompat(targetWindow, targetWindow.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    private fun difficultyDisplayName(): String? = when (gameplayDifficulty) {
+        SudokuDifficulty.EASY -> getString(R.string.menu_easy)
+        SudokuDifficulty.MEDIUM -> getString(R.string.menu_medium)
+        SudokuDifficulty.HARD -> getString(R.string.menu_hard)
+        SudokuDifficulty.UNSUPPORTED, null -> null
     }
 
     private fun exit(){
@@ -570,12 +987,26 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
 
     override fun onResume() {
         super.onResume()
+        enterImmersiveGameplay(window)
+        pauseDialog?.takeIf { it.isShowing }?.window?.let(::enterImmersiveGameplay)
+        completionDialog?.takeIf { it.isShowing }?.window?.let(::enterImmersiveGameplay)
         val preferenceEnabled = sharedPreferences.getBoolean(PREF_AUTO_NOTES, false)
         if (preferenceEnabled != autoNotesEnabled) {
             applyAutoNotesPreference(preferenceEnabled, forceRecompute = true)
         }
-        if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
+        if (
+            viewModel.gameplayLoadState.value is GameplayLoadState.Ready &&
+            pauseDialog?.isShowing != true &&
+            completionDialog?.isShowing != true
+        ) {
             timer.start()
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            enterImmersiveGameplay(window)
         }
     }
 
@@ -592,6 +1023,7 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         }
         if (::modeTextView.isInitialized) {
             modeTextView.text = gameplayModeText()
+            modeTextView.contentDescription = gameplayModeText()
         }
         if (::sudokuBoardView.isInitialized) {
             updateAutoNotes(
@@ -632,10 +1064,25 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
     )
 
     override fun onDestroy() {
-        hintSnackbar?.dismiss()
+        val snackbar = hintSnackbar
+        hintSnackbar = null
+        snackbar?.dismiss()
+        clearHintOverlayState()
+        pauseDialog?.dismiss()
+        completionDialog?.dismiss()
         super.onDestroy()
         timer.destroy()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
+
+    private fun restoreTimerSnapshot(seconds: Int) {
+        val safeSeconds = seconds.coerceAtLeast(0)
+        timer.seconds = safeSeconds
+        currentTime = String.format("%02d:%02d", safeSeconds / 60, safeSeconds % 60)
+        timerTextView.text = currentTime
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -644,6 +1091,8 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             STATE_ACTIVE_GAME,
             state is GameplayLoadState.Ready && viewModel.sudokuBoard.value != null
         )
+        outState.putInt(STATE_TIMER_SECONDS, timer.seconds)
+        outState.putBoolean(STATE_PAUSED, pauseDialog?.isShowing == true)
         val difficulty = when (state) {
             is GameplayLoadState.Loading -> state.requestedDifficulty
             is GameplayLoadState.Ready -> state.requestedDifficulty

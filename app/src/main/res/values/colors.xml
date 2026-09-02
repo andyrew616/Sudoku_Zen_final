@@ -84,5 +84,26 @@
     <color name="menu_back_border">#3DFFFFFF</color>
     <color name="menu_back_icon">#D1FFFFFF</color>
 
+    <!-- PR13 shared visual system: calm parchment, ink and restrained accents. -->
+    <color name="zen_background_veil">#70FFFDF9</color>
+    <color name="zen_surface">#F2FFFDF9</color>
+    <color name="zen_surface_soft">#D9FFFDF9</color>
+    <color name="zen_surface_pressed">#FFEFEAF5</color>
+    <color name="zen_surface_border">#5C766A9E</color>
+    <color name="zen_dialog_scrim">#B8494558</color>
+    <color name="zen_dialog_surface">#FFFFFDFC</color>
+    <color name="zen_primary">#675D91</color>
+    <color name="zen_primary_pressed">#544A7E</color>
+    <color name="zen_primary_soft">#E8E2F1</color>
+    <color name="zen_danger">#8D4D55</color>
+    <color name="zen_danger_soft">#F6E8E8</color>
+    <color name="zen_switch_thumb">#675D91</color>
+    <color name="zen_navigation_bar">#FFFDF9</color>
+    <color name="gameplay_auto_note">#596575</color>
+    <color name="gameplay_selected_outline">#A76D5322</color>
+    <color name="gameplay_hint_outline">#9C675D91</color>
+    <color name="gameplay_hint_surface">#FFF9F3FD</color>
+    <color name="gameplay_hint_border">#70675D91</color>
+
 
 </resources>
