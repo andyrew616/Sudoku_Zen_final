@@ -117,7 +117,9 @@ enum class SudokuTechnique {
     NAKED_TRIPLE,
     HIDDEN_TRIPLE,
     X_WING,
-    XY_WING
+    XY_WING,
+    SKYSCRAPER,
+    TWO_STRING_KITE
 }
 
 sealed interface SolveAction {
@@ -235,23 +237,184 @@ sealed interface StepEvidence {
 
         init {
             DigitSet.requireDigit(digit)
-            require(this.baseHouses.isNotEmpty()) { "Fish evidence requires base houses" }
-            require(this.coverHouses.isNotEmpty()) { "Fish evidence requires cover houses" }
-            require(this.cells.isNotEmpty()) { "Fish evidence requires cells" }
+            require(this.baseHouses.size == 2) { "X-Wing evidence requires two base houses" }
+            require(this.coverHouses.size == 2) { "X-Wing evidence requires two cover houses" }
+            require(this.cells.size == 4) { "X-Wing evidence requires four supporting cells" }
+            require(this.baseHouses.map { it.type }.distinct().size == 1) {
+                "X-Wing base houses must have one type"
+            }
+            require(this.coverHouses.map { it.type }.distinct().size == 1) {
+                "X-Wing cover houses must have one type"
+            }
+            require(this.baseHouses.first().type != this.coverHouses.first().type) {
+                "X-Wing base and cover house types must differ"
+            }
         }
+
+        override fun equals(other: Any?): Boolean =
+            other is Fish &&
+                digit == other.digit &&
+                baseHouses == other.baseHouses &&
+                coverHouses == other.coverHouses &&
+                cells == other.cells
+
+        override fun hashCode(): Int {
+            var result = digit
+            result = 31 * result + baseHouses.hashCode()
+            result = 31 * result + coverHouses.hashCode()
+            result = 31 * result + cells.hashCode()
+            return result
+        }
+
+        override fun toString(): String =
+            "Fish(digit=$digit, baseHouses=$baseHouses, coverHouses=$coverHouses, cells=$cells)"
     }
 
     class XYWing(
         val pivot: CellRef,
-        val firstPincer: CellRef,
-        val secondPincer: CellRef,
-        val digits: DigitSet
+        pincers: Collection<CellRef>,
+        val pivotDigits: DigitSet,
+        val eliminationDigit: Int
     ) : StepEvidence {
+        val pincers: List<CellRef> = immutableSortedDistinct(pincers)
+
         init {
-            require(setOf(pivot, firstPincer, secondPincer).size == 3) {
+            DigitSet.requireDigit(eliminationDigit)
+            require(this.pincers.size == 2) { "XY-Wing evidence requires two pincers" }
+            require(pivot !in this.pincers) {
                 "XY-Wing pivot and pincers must be distinct"
             }
-            require(digits.size == 3) { "XY-Wing evidence must contain exactly three digits" }
+            require(pivotDigits.size == 2) { "XY-Wing pivot must contain exactly two digits" }
+            require(eliminationDigit !in pivotDigits) {
+                "XY-Wing elimination digit must not be a pivot digit"
+            }
+        }
+
+        val firstPincer: CellRef
+            get() = pincers[0]
+
+        val secondPincer: CellRef
+            get() = pincers[1]
+
+        val digits: DigitSet
+            get() = pivotDigits.add(eliminationDigit)
+
+        override fun equals(other: Any?): Boolean =
+            other is XYWing &&
+                pivot == other.pivot &&
+                pincers == other.pincers &&
+                pivotDigits == other.pivotDigits &&
+                eliminationDigit == other.eliminationDigit
+
+        override fun hashCode(): Int {
+            var result = pivot.hashCode()
+            result = 31 * result + pincers.hashCode()
+            result = 31 * result + pivotDigits.hashCode()
+            result = 31 * result + eliminationDigit
+            return result
+        }
+
+        override fun toString(): String =
+            "XYWing(pivot=$pivot, pincers=$pincers, pivotDigits=$pivotDigits, " +
+                "eliminationDigit=$eliminationDigit)"
+    }
+
+    class Skyscraper(
+        val digit: Int,
+        val orientation: HouseType,
+        sourceHouses: Collection<HouseRef>,
+        alignedCells: Collection<CellRef>,
+        towers: Collection<CellRef>
+    ) : StepEvidence {
+        val sourceHouses: List<HouseRef> = immutableSortedDistinct(sourceHouses)
+        val alignedCells: List<CellRef> = immutableSortedDistinct(alignedCells)
+        val towers: List<CellRef> = immutableSortedDistinct(towers)
+
+        init {
+            DigitSet.requireDigit(digit)
+            require(orientation == HouseType.ROW || orientation == HouseType.COLUMN) {
+                "Skyscraper orientation must be ROW or COLUMN"
+            }
+            require(this.sourceHouses.size == 2) {
+                "Skyscraper evidence requires two source houses"
+            }
+            require(this.sourceHouses.all { it.type == orientation }) {
+                "Skyscraper source houses must match its orientation"
+            }
+            require(this.alignedCells.size == 2) {
+                "Skyscraper evidence requires two aligned cells"
+            }
+            require(this.towers.size == 2) { "Skyscraper evidence requires two towers" }
+            require((this.alignedCells + this.towers).distinct().size == 4) {
+                "Skyscraper support cells must be distinct"
+            }
+            require(this.alignedCells.map { it.coverIndexFor(orientation) }.distinct().size == 1) {
+                "Skyscraper aligned cells must share one cover house"
+            }
+            require(this.towers.map { it.coverIndexFor(orientation) }.distinct().size == 2) {
+                "Skyscraper towers must occupy different cover houses"
+            }
+            require(this.sourceHouses.all { house ->
+                this.alignedCells.count { it.belongsTo(house) } == 1 &&
+                    this.towers.count { it.belongsTo(house) } == 1
+            }) {
+                "Each Skyscraper source house must contain one aligned cell and one tower"
+            }
+        }
+
+        override fun equals(other: Any?): Boolean =
+            other is Skyscraper &&
+                digit == other.digit &&
+                orientation == other.orientation &&
+                sourceHouses == other.sourceHouses &&
+                alignedCells == other.alignedCells &&
+                towers == other.towers
+
+        override fun hashCode(): Int {
+            var result = digit
+            result = 31 * result + orientation.hashCode()
+            result = 31 * result + sourceHouses.hashCode()
+            result = 31 * result + alignedCells.hashCode()
+            result = 31 * result + towers.hashCode()
+            return result
+        }
+
+        override fun toString(): String =
+            "Skyscraper(digit=$digit, orientation=$orientation, " +
+                "sourceHouses=$sourceHouses, alignedCells=$alignedCells, towers=$towers)"
+    }
+
+    data class TwoStringKite(
+        val digit: Int,
+        val rowHouse: HouseRef,
+        val columnHouse: HouseRef,
+        val rowConnector: CellRef,
+        val columnConnector: CellRef,
+        val rowOuter: CellRef,
+        val columnOuter: CellRef
+    ) : StepEvidence {
+        init {
+            DigitSet.requireDigit(digit)
+            require(rowHouse.type == HouseType.ROW) {
+                "Two-String Kite row source must be a row"
+            }
+            require(columnHouse.type == HouseType.COLUMN) {
+                "Two-String Kite column source must be a column"
+            }
+            require(rowConnector.belongsTo(rowHouse) && rowOuter.belongsTo(rowHouse)) {
+                "Row connector and outer endpoint must belong to the row source"
+            }
+            require(
+                columnConnector.belongsTo(columnHouse) && columnOuter.belongsTo(columnHouse)
+            ) {
+                "Column connector and outer endpoint must belong to the column source"
+            }
+            require(rowConnector.boxIndex() == columnConnector.boxIndex()) {
+                "Two-String Kite connectors must share a box"
+            }
+            require(
+                listOf(rowConnector, columnConnector, rowOuter, columnOuter).distinct().size == 4
+            ) { "Two-String Kite support cells must be distinct" }
         }
     }
 }
@@ -334,3 +497,11 @@ private fun CellRef.belongsTo(house: HouseRef): Boolean = when (house.type) {
     HouseType.COLUMN -> column == house.index
     HouseType.BOX -> (row / 3) * 3 + column / 3 == house.index
 }
+
+private fun CellRef.coverIndexFor(orientation: HouseType): Int = when (orientation) {
+    HouseType.ROW -> column
+    HouseType.COLUMN -> row
+    HouseType.BOX -> error("A box cannot be a Skyscraper orientation")
+}
+
+private fun CellRef.boxIndex(): Int = (row / 3) * 3 + column / 3

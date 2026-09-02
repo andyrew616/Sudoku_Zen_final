@@ -2,15 +2,23 @@
 <resources>
 
     <style name="Theme.MyApplication" parent="Theme.AppCompat.Light.NoActionBar">
-
-            <item name="colorPrimary">#673AB7</item> <!-- Deep Purple 500 -->
-            <item name="colorPrimaryDark">#512DA8</item> <!-- Deep Purple 700 -->
-            <item name="colorAccent">#29B6F6</item> <!-- Light Blue 400 -->
-
+        <item name="colorPrimary">@color/zen_primary</item>
+        <item name="colorPrimaryDark">@color/zen_primary_pressed</item>
+        <item name="colorAccent">@color/zen_primary</item>
+        <item name="android:fontFamily">@font/ubuntu_regular</item>
+        <item name="android:colorAccent">@color/zen_primary</item>
+        <item name="android:navigationBarColor">@color/zen_navigation_bar</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowNoTitle">true</item>
     </style>
 
-    <style name="LaunchScreenTheme" parent="Theme.AppCompat.NoActionBar">
+    <style name="LaunchScreenTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">@drawable/ic_splash</item>
+        <item name="android:navigationBarColor">@color/zen_navigation_bar</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
     <style name="MenuDifficultyTile">
         <item name="android:layout_width">0dp</item>

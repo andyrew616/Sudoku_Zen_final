@@ -58,7 +58,7 @@
                 style="@style/MenuDifficultyTile"
                 android:layout_marginEnd="@dimen/menu_grid_half_gap"
                 android:background="@drawable/menu_difficulty_easy_background"
-                android:contentDescription="@string/easy_mode">
+                android:contentDescription="@string/menu_easy_accessibility">
 
                 <TextView style="@style/MenuDifficultyTitle" android:text="@string/menu_easy" />
 
@@ -81,7 +81,7 @@
                 android:layout_marginStart="@dimen/menu_grid_half_gap"
                 android:layout_marginEnd="@dimen/menu_medium_tile_end_margin"
                 android:background="@drawable/menu_difficulty_medium_background"
-                android:contentDescription="@string/medium_difficulty">
+                android:contentDescription="@string/menu_medium_accessibility">
 
                 <TextView style="@style/MenuDifficultyTitle" android:text="@string/menu_medium" />
 
@@ -106,7 +106,7 @@
                 android:layout_marginTop="@dimen/menu_hard_tile_top_margin"
                 android:layout_marginEnd="@dimen/menu_hard_tile_end_margin"
                 android:background="@drawable/menu_difficulty_hard_background"
-                android:contentDescription="@string/hard_difficulty">
+                android:contentDescription="@string/menu_hard_accessibility">
 
                 <TextView style="@style/MenuDifficultyTitle" android:text="@string/menu_hard" />
 

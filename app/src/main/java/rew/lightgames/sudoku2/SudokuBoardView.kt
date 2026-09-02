@@ -7,9 +7,14 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 
 interface OnCellSelectedListener {
     fun onCellSelected(row: Int, col: Int)
@@ -25,6 +30,8 @@ class SudokuBoardView @JvmOverloads constructor(
     var selectedRow = -1
     var selectedCol = -1
     var cellSelectedListener: OnCellSelectedListener? = null
+    private var hintHighlights: List<HintHighlight> = emptyList()
+    private var autoNotes: AutoNotesResult? = null
 
     private val cells = Array(9) { arrayOfNulls<SudokuCellView>(9) }
     private val thinGridPaint = gridPaint(
@@ -57,6 +64,8 @@ class SudokuBoardView @JvmOverloads constructor(
             val col = index % 9
             val cellView = SudokuCellView(context, null).apply {
                 id = View.generateViewId()
+                isFocusable = true
+                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
                 layoutParams = GridLayout.LayoutParams().apply {
                     width = 0
                     height = 0
@@ -65,6 +74,25 @@ class SudokuBoardView @JvmOverloads constructor(
                     setGravity(Gravity.FILL)
                 }
                 setBackgroundColor(color(R.color.gameplay_board_cell))
+                setOnClickListener { selectEditableCell(row, col) }
+                ViewCompat.setAccessibilityDelegate(
+                    this,
+                    object : AccessibilityDelegateCompat() {
+                        override fun onInitializeAccessibilityNodeInfo(
+                            host: View,
+                            info: AccessibilityNodeInfoCompat
+                        ) {
+                            super.onInitializeAccessibilityNodeInfo(host, info)
+                            val editable = board?.getCell(row, col)?.isEditable == true
+                            info.className = if (editable) {
+                                Button::class.java.name
+                            } else {
+                                TextView::class.java.name
+                            }
+                            info.isClickable = editable
+                        }
+                    }
+                )
             }
             cells[row][col] = cellView
             gridLayout.addView(cellView)
@@ -86,17 +114,21 @@ class SudokuBoardView @JvmOverloads constructor(
         renderAllCells()
     }
 
+    fun setHintHighlights(highlights: Collection<HintHighlight>) {
+        hintHighlights = highlights.toList()
+        renderAllCells()
+    }
+
+    fun setAutoNotes(result: AutoNotesResult?) {
+        autoNotes = result
+        renderAllCells()
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN && width > 0 && height > 0) {
             val col = (event.x / (width / 9f)).toInt().coerceIn(0, 8)
             val row = (event.y / (height / 9f)).toInt().coerceIn(0, 8)
-            if (board?.getCell(row, col)?.isEditable == true) {
-                selectedRow = row
-                selectedCol = col
-                cellSelectedListener?.onCellSelected(row, col)
-                renderAllCells()
-                invalidate()
-            }
+            selectEditableCell(row, col)
         } else if (event.action == MotionEvent.ACTION_UP) {
             performClick()
         }
@@ -159,20 +191,57 @@ class SudokuBoardView @JvmOverloads constructor(
                         col == selectedCol ||
                         row / 3 == selectedRow / 3 && col / 3 == selectedCol / 3
                     )
+                val cellHighlights = hintHighlights.filter { it.cell == CellRef(row, col) }
+                val dominantHint = cellHighlights.maxByOrNull { hintPriority(it.role) }
+                val presentedNotes = when (val result = autoNotes) {
+                    is AutoNotesResult.Available -> result.candidatesAt(row, col)
+                    AutoNotesResult.InvalidBoard -> emptyList()
+                    null -> null
+                }
 
                 val backgroundColor = when {
-                    selected -> color(R.color.gameplay_selected_cell)
                     error -> color(R.color.gameplay_error_cell)
+                    dominantHint?.role == HintHighlightRole.ELIMINATION ->
+                        color(R.color.gameplay_hint_cell)
+                    dominantHint?.role == HintHighlightRole.TARGET ->
+                        color(R.color.gameplay_selected_cell)
+                    dominantHint?.role == HintHighlightRole.SUPPORT ->
+                        color(R.color.gameplay_matching_cell)
+                    selected -> color(R.color.gameplay_selected_cell)
                     matching -> color(R.color.gameplay_matching_cell)
                     cell.isHint -> color(R.color.gameplay_hint_cell)
+                    dominantHint?.role == HintHighlightRole.HOUSE ->
+                        color(R.color.gameplay_related_cell)
                     related -> color(R.color.gameplay_related_cell)
                     !cell.isEditable -> color(R.color.gameplay_board_cell_fixed)
                     else -> color(R.color.gameplay_board_cell)
                 }
 
                 cells[row][col]?.apply {
-                    setCell(cell, error)
+                    setCell(
+                        cell = cell,
+                        isError = error,
+                        presentedNotes = presentedNotes,
+                        automaticNotes = autoNotes != null,
+                        selected = selected,
+                        hintRole = dominantHint?.role
+                    )
                     setBackgroundColor(backgroundColor)
+                    isClickable = cell.isEditable
+                    isSelected = selected
+                    contentDescription = hintContentDescription(row, col, cellHighlights)
+                        ?: notesContentDescription(row, col, cell, presentedNotes)
+                        ?: cellContentDescription(row, col, cell)
+                    val states = buildList {
+                        if (selected) add(resources.getString(R.string.sudoku_cell_selected_state))
+                        if (error) add(resources.getString(R.string.sudoku_cell_conflict_state))
+                    }
+                    ViewCompat.setStateDescription(
+                        this,
+                        states.takeIf { it.isNotEmpty() }?.joinToString(
+                            resources.getString(R.string.hint_list_separator)
+                        )
+                    )
                 }
             }
         }
@@ -183,6 +252,118 @@ class SudokuBoardView @JvmOverloads constructor(
         return cell.isEditable &&
             cell.number != 0 &&
             board?.hasVisibleConflict(row, col) == true
+    }
+
+    private fun selectEditableCell(row: Int, col: Int) {
+        if (board?.getCell(row, col)?.isEditable != true) return
+        selectedRow = row
+        selectedCol = col
+        cellSelectedListener?.onCellSelected(row, col)
+        renderAllCells()
+        invalidate()
+    }
+
+    private fun cellContentDescription(row: Int, column: Int, cell: Cell): String {
+        return when {
+            !cell.isEditable -> resources.getString(
+                R.string.sudoku_cell_given,
+                row + 1,
+                column + 1,
+                cell.number
+            )
+            cell.number != 0 -> resources.getString(
+                R.string.sudoku_cell_entered,
+                row + 1,
+                column + 1,
+                cell.number
+            )
+            else -> resources.getString(
+                R.string.sudoku_cell_empty,
+                row + 1,
+                column + 1
+            )
+        }
+    }
+
+    private fun hintContentDescription(
+        row: Int,
+        column: Int,
+        highlights: List<HintHighlight>
+    ): String? {
+        val dominant = highlights.maxByOrNull { hintPriority(it.role) } ?: return null
+        val digits = highlights
+            .filter { it.role == dominant.role }
+            .mapNotNull { it.digit }
+            .distinct()
+            .sorted()
+            .joinToString(resources.getString(R.string.hint_digit_separator))
+        return when (dominant.role) {
+            HintHighlightRole.TARGET -> resources.getString(
+                R.string.hint_accessibility_target,
+                row + 1,
+                column + 1,
+                digits
+            )
+            HintHighlightRole.ELIMINATION -> resources.getString(
+                R.string.hint_accessibility_elimination,
+                digits,
+                row + 1,
+                column + 1
+            )
+            HintHighlightRole.SUPPORT -> resources.getString(
+                R.string.hint_accessibility_support,
+                row + 1,
+                column + 1
+            )
+            HintHighlightRole.HOUSE -> resources.getString(
+                R.string.hint_accessibility_house,
+                row + 1,
+                column + 1
+            )
+        }
+    }
+
+    private fun hintPriority(role: HintHighlightRole): Int = when (role) {
+        HintHighlightRole.HOUSE -> 0
+        HintHighlightRole.SUPPORT -> 1
+        HintHighlightRole.TARGET -> 2
+        HintHighlightRole.ELIMINATION -> 3
+    }
+
+    private fun notesContentDescription(
+        row: Int,
+        column: Int,
+        cell: Cell,
+        presentedNotes: Collection<Int>?
+    ): String? {
+        if (!cell.isEditable || cell.number != 0) return null
+        if (autoNotes == null) {
+            val visibleNotes = cell.notes.filter { it in 1..9 }.distinct().sorted()
+            if (visibleNotes.isEmpty()) return null
+            return resources.getString(
+                R.string.manual_notes_accessibility_candidates,
+                row + 1,
+                column + 1,
+                visibleNotes.joinToString(
+                    resources.getString(R.string.hint_digit_separator)
+                )
+            )
+        }
+        if (autoNotes == AutoNotesResult.InvalidBoard) {
+            return resources.getString(
+                R.string.auto_notes_accessibility_unavailable,
+                row + 1,
+                column + 1
+            )
+        }
+        return resources.getString(
+            R.string.auto_notes_accessibility_candidates,
+            row + 1,
+            column + 1,
+            presentedNotes.orEmpty().joinToString(
+                resources.getString(R.string.hint_digit_separator)
+            )
+        )
     }
 
     private fun gridPaint(colorRes: Int, widthRes: Int): Paint {

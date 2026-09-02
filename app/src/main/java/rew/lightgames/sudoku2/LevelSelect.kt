@@ -24,21 +24,30 @@
             // Easy button click listener
             view.findViewById<View>(R.id.Easy).setOnClickListener {
                 val intent = Intent(activity, MainActivity::class.java)
-                intent.putExtra("difficulty", "easy")
+                intent.putExtra(
+                    GameplayDifficultyAdapter.INTENT_EXTRA,
+                    GameplayDifficultyAdapter.EASY_VALUE
+                )
                 start_game(intent)
             }
 
             // Medium button click listener
             view.findViewById<View>(R.id.Medium).setOnClickListener {
                 val intent = Intent(activity, MainActivity::class.java)
-                intent.putExtra("difficulty", "medium")
+                intent.putExtra(
+                    GameplayDifficultyAdapter.INTENT_EXTRA,
+                    GameplayDifficultyAdapter.MEDIUM_VALUE
+                )
                 start_game(intent)
             }
 
             // Hard button click listener
             view.findViewById<View>(R.id.HardBttn).setOnClickListener {
                 val intent = Intent(activity, MainActivity::class.java)
-                intent.putExtra("difficulty", "hard")
+                intent.putExtra(
+                    GameplayDifficultyAdapter.INTENT_EXTRA,
+                    GameplayDifficultyAdapter.HARD_VALUE
+                )
                 start_game(intent)
 
             }
