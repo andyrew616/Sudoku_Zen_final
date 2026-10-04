@@ -163,4 +163,9 @@
     <string name="hint_accessibility_elimination">Remove candidate %1$s at row %2$d, column %3$d</string>
     <string name="hint_accessibility_support">Hint support at row %1$d, column %2$d</string>
     <string name="hint_accessibility_house">Hint region at row %1$d, column %2$d</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <!-- Set only after a real public HTTPS policy has been reviewed. Blank blocks release approval. -->
+    <string name="privacy_policy_url" translatable="false"></string>
+    <string name="privacy_policy_unavailable">The privacy policy link is not available yet.</string>
+    <string name="privacy_policy_no_browser">No browser is available to open the privacy policy.</string>
 </resources>

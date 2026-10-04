@@ -272,6 +272,21 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/privacyPolicyButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/zen_surface_gap"
+                android:background="@drawable/zen_button_secondary"
+                android:fontFamily="@font/ubuntu_medium"
+                android:minHeight="48dp"
+                android:focusable="true"
+                android:textAllCaps="false"
+                android:padding="12dp"
+                android:textColor="@color/gameplay_ink"
+                android:textSize="@dimen/zen_label_size"
+                android:text="@string/privacy_policy" />
+
             <LinearLayout
                 android:id="@+id/privacyOptionsRow"
                 android:layout_width="match_parent"

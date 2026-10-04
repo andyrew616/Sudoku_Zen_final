@@ -1,5 +1,9 @@
 package rew.lightgames.sudoku2
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import androidx.appcompat.app.AlertDialog
 import android.content.Context
 import android.content.SharedPreferences
 
@@ -73,6 +77,19 @@ class OptionsActivity : AppCompatActivity() {
             updateSwitchStateDescription(autoNotesSwitch)
         }
 
+        findViewById<View>(R.id.privacyPolicyButton).setOnClickListener {
+            val policyUrl = getString(R.string.privacy_policy_url).trim()
+            if (policyUrl.isEmpty()) {
+                showPrivacyPolicyMessage(R.string.privacy_policy_unavailable)
+            } else {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(policyUrl)))
+                } catch (_: ActivityNotFoundException) {
+                    showPrivacyPolicyMessage(R.string.privacy_policy_no_browser)
+                }
+            }
+        }
+
         val privacyRow = findViewById<View>(R.id.privacyOptionsRow)
         if (ConsentManager.isPrivacyOptionsRequired()) {
             privacyRow.visibility = View.VISIBLE
@@ -96,6 +113,14 @@ class OptionsActivity : AppCompatActivity() {
         }
 
     }
+    private fun showPrivacyPolicyMessage(message: Int) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.privacy_policy)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()
         return true

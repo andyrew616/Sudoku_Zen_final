@@ -3,16 +3,28 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Private local configuration; credential values never belong in Gradle/source files.
+def uploadSigningPropertiesFile = rootProject.file('.local-upload-signing/upload-signing.properties')
+def uploadSigningProperties = new Properties()
+if (uploadSigningPropertiesFile.isFile()) {
+    uploadSigningPropertiesFile.withInputStream { uploadSigningProperties.load(it) }
+}
+def uploadStoreFile = uploadSigningProperties.getProperty('storeFile')
+def uploadPasswordFile = uploadSigningProperties.getProperty('passwordFile')
+def uploadKeyAlias = uploadSigningProperties.getProperty('keyAlias')
+def uploadSigningConfigured = uploadStoreFile && uploadPasswordFile && uploadKeyAlias &&
+        rootProject.file(uploadStoreFile).isFile() && rootProject.file(uploadPasswordFile).isFile()
+
 android {
     namespace 'rew.lightgames.sudoku2'
     compileSdk 36
 
     defaultConfig {
-        applicationId 'rew.lightgames.sudoku2'
+        applicationId 'rew.lightgames.zensudoku'
         minSdk 24
         targetSdk 36
-        versionCode 3
-        versionName "1.1"
+        versionCode 1
+        versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -20,11 +32,25 @@ android {
         }
     }
 
+    signingConfigs {
+        if (uploadSigningConfigured) {
+            upload {
+                storeFile rootProject.file(uploadStoreFile)
+                storePassword rootProject.file(uploadPasswordFile).readLines('UTF-8').first()
+                keyAlias uploadKeyAlias
+                keyPassword rootProject.file(uploadPasswordFile).readLines('UTF-8').first()
+                storeType 'PKCS12'
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            // New listing: this is the local UPLOAD key, not Google's app-signing key.
+            if (uploadSigningConfigured) {
+                signingConfig signingConfigs.upload
+            }
         }
     }
     buildFeatures {
@@ -65,4 +91,22 @@ dependencies {
     implementation "androidx.fragment:fragment-ktx:1.8.9"
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
     implementation 'com.google.code.gson:gson:2.14.0'
+}
+
+// Fail before packaging a release if local upload credentials are unavailable.
+// Unit tests and lint remain runnable without possessing the private key.
+def verifyUploadSigning = tasks.register('verifyUploadSigning') {
+    doLast {
+        if (!uploadSigningConfigured) {
+            throw new GradleException('Release upload signing is not configured. See docs/release/UPLOAD-SIGNING.md; debug signing is never used for releases.')
+        }
+        if (android.buildTypes.release.signingConfig != android.signingConfigs.upload) {
+            throw new GradleException('Release must use the configured upload signing key.')
+        }
+    }
+}
+tasks.configureEach {
+    if (name in ['packageRelease', 'packageReleaseBundle', 'signReleaseBundle', 'bundleRelease', 'assembleRelease']) {
+        dependsOn verifyUploadSigning
+    }
 }

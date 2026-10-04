@@ -13,3 +13,22 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Generated outputs must never be confused with a reviewed release candidate.
+**/build/
+.kotlin/
+*.apk
+*.aab
+# Historical evidence only; these are deliberately labelled NOT-FOR-UPLOAD.
+!docs/release/historical-artifacts/NOT-FOR-UPLOAD-*.aab
+# Local signing material and credentials belong outside version control.
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+signing.properties
+# Local validation logs survive reboots, outside Gradle's cleanable outputs.
+.release-validation/
+# Upload-key material and password files must never enter source control.
+.local-upload-signing/

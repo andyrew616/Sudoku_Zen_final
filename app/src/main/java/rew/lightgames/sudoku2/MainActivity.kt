@@ -60,7 +60,6 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
         private const val STATE_PAUSED = "gameplay_paused"
     }
     private var mInterstitialAdCompletion: InterstitialAd? = null
-    private var mInterstitialAdOnExit: InterstitialAd? = null
     private final var TAG = "MainActivity"
     private var soundPool: SoundPool? = null
     var soundId: Int? = null
@@ -233,20 +232,6 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
                     viewModel.reportGenerationInterrupted()
                 GameplayLaunchMode.NEW_GAME -> Unit
             }
-        }
-
-        if (ConsentManager.canRequestAds()) {
-            InterstitialAd.load(this,"ca-app-pub-4002896469283656/2976818750", adRequest, object : InterstitialAdLoadCallback() {
-                override fun onAdFailedToLoad(adError: LoadAdError) {
-                    Log.d(TAG, adError.toString())
-                    mInterstitialAdOnExit = null
-                }
-
-                override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                    Log.d(TAG, "Ad was loaded.")
-                    mInterstitialAdOnExit = interstitialAd
-                }
-            })
         }
 
         if (viewModel.gameplayLoadState.value is GameplayLoadState.Ready) {
@@ -888,34 +873,11 @@ class MainActivity : AppCompatActivity(), SudokuControlListener, OnCellSelectedL
             val intent = Intent(this, OptionsActivity::class.java)
             startActivity(intent)
         }
+        // Saving and returning is navigation: never interrupt it with an ad.
         exitBtn.setOnClickListener {
             saveGame()
-            if (mInterstitialAdOnExit != null) {
-                mInterstitialAdOnExit?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                    override fun onAdDismissedFullScreenContent() {
-                        // Perform actions after ad is dismissed
-                        exit()
-                    }
-
-                    override fun onAdFailedToShowFullScreenContent(p0: AdError) {
-                        Log.d(TAG, "The interstitial ad failed to show.")
-                        // Perform actions even if the ad fails to show
-                        exit()
-                    }
-
-                    override fun onAdShowedFullScreenContent() {
-                        // Called when ad is shown.
-                        mInterstitialAdOnExit = null
-                    }
-                }
-
-                mInterstitialAdOnExit?.show(this)
-            } else {
-                Log.d(TAG, "The interstitial ad wasn't ready yet.")
-                // Perform actions if the ad wasn't ready
-                exit()
-
-            }
+            dialog.dismiss()
+            exit()
         }
         dialog.setOnDismissListener {
             if (pauseDialog === dialog) pauseDialog = null
