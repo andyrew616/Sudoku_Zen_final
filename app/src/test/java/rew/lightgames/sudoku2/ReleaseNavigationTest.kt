@@ -17,6 +17,12 @@ class ReleaseNavigationTest {
 
     @Test fun privacyPolicyRouteIsAlwaysPresent() {
         val layout = File("src/main/res/layout/activity_options.xml").readText()
+        val resources = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(File("src/main/res/values/strings.xml"))
+        val strings = resources.getElementsByTagName("string")
+        val policyUrl = (0 until strings.length).map { strings.item(it) }
+            .single { it.attributes.getNamedItem("name").nodeValue == "privacy_policy_url" }.textContent
+        assertEquals("https://andyrew616.github.io/Sudoku_Zen_final/privacy.html", policyUrl)
         assertTrue("Settings needs a separate policy route", layout.contains("@+id/privacyPolicyButton"))
     }
 }

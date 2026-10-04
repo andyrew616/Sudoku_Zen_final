@@ -54,8 +54,12 @@ No old-package upgrade test is needed: this is a distinct application identity.
 
 ## Preserved external items
 
-`privacy_policy_url` remains empty with an honest in-app fallback; do not invent
-one. Before publication provide the real public policy and verify its route.
+`privacy_policy_url` is the published policy at
+`https://andyrew616.github.io/Sudoku_Zen_final/privacy.html`. Settings always
+exposes a separate Privacy policy button with supporting text and external-browser
+navigation, independent of conditional UMP Privacy settings. Every replacement
+candidate must verify that actual browser route. When no browser is available,
+the app shows a graceful error dialog.
 Purple Planet's **A Touch of Zen** still needs entitlement/attribution evidence;
 see `ASSET-LICENSING.md` and the artwork inventory. No asset was removed/replaced.
 The existing AdMob app ID and banner/completion ad units are preserved. Their

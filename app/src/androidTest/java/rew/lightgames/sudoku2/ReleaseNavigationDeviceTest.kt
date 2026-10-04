@@ -46,9 +46,12 @@ class ReleaseNavigationDeviceTest {
     @Test fun policyIsAccessibleWithoutRequiredConsentOptions() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         ActivityScenario.launch<OptionsActivity>(Intent(context, OptionsActivity::class.java)).use {
-            onView(withText("Privacy Policy")).check(matches(isDisplayed())).perform(click())
-            onView(withText("The privacy policy link is not available yet.")).check(matches(isDisplayed()))
-            onView(withText("OK")).perform(click())
+            onView(withId(R.id.privacyPolicyButton)).check(matches(isDisplayed()))
+                .check(matches(isFocusable())).check(matches(isClickable()))
+            assertEquals("https://andyrew616.github.io/Sudoku_Zen_final/privacy.html",
+                context.getString(R.string.privacy_policy_url))
+            // Real external-browser navigation is validated on the exact AAB-derived release.
+            // This assertion works whether UMP currently requires privacy options or not.
         }
     }
 }

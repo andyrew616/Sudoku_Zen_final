@@ -285,7 +285,7 @@
                 android:padding="12dp"
                 android:textColor="@color/gameplay_ink"
                 android:textSize="@dimen/zen_label_size"
-                android:text="@string/privacy_policy" />
+                android:text="@string/privacy_policy_action" />
 
             <LinearLayout
                 android:id="@+id/privacyOptionsRow"
