@@ -1,0 +1,74 @@
+[
+  {
+    "file": "01-menu.png",
+    "sha256": "159c6a06d2cbf522ef56c8e015a53276700ed7f22ea78e5a09663a8f2aa30ad7",
+    "bytes": 861868,
+    "dimensions": [
+      1080,
+      1920
+    ],
+    "mode": "RGB",
+    "format": "PNG",
+    "captured_ui_pixel_match_after_declared_crop_and_uniform_resize": true
+  },
+  {
+    "file": "02-gameplay.png",
+    "sha256": "5c886182bc865fb66bf0252f184199656fddbaf6703b77e0b95a71eccb5b55dc",
+    "bytes": 470461,
+    "dimensions": [
+      1080,
+      1920
+    ],
+    "mode": "RGB",
+    "format": "PNG",
+    "captured_ui_pixel_match_after_declared_crop_and_uniform_resize": true
+  },
+  {
+    "file": "03-hints.png",
+    "sha256": "d53b9fb2f098d041ec82717450c278f9c55eea499d182b04195b97279bed5adc",
+    "bytes": 467489,
+    "dimensions": [
+      1080,
+      1920
+    ],
+    "mode": "RGB",
+    "format": "PNG",
+    "captured_ui_pixel_match_after_declared_crop_and_uniform_resize": true
+  },
+  {
+    "file": "04-notes.png",
+    "sha256": "b117fd7d51f0b2ee4c2543fc9eaaa0cc5f9042df0fa57def555194c5dc74bcaf",
+    "bytes": 468547,
+    "dimensions": [
+      1080,
+      1920
+    ],
+    "mode": "RGB",
+    "format": "PNG",
+    "captured_ui_pixel_match_after_declared_crop_and_uniform_resize": true
+  },
+  {
+    "file": "05-pause-resume.png",
+    "sha256": "21fdfaa9e9ef93b72235a5e5504043f9cb3198acafe0ca1d71dc8ba846357204",
+    "bytes": 499641,
+    "dimensions": [
+      1080,
+      1920
+    ],
+    "mode": "RGB",
+    "format": "PNG",
+    "captured_ui_pixel_match_after_declared_crop_and_uniform_resize": true
+  },
+  {
+    "file": "06-settings.png",
+    "sha256": "48acd37a09e47e80d4db6da418e3d78bb78d2e8b46829cd394fb9de3bb3c056a",
+    "bytes": 770096,
+    "dimensions": [
+      1080,
+      1920
+    ],
+    "mode": "RGB",
+    "format": "PNG",
+    "captured_ui_pixel_match_after_declared_crop_and_uniform_resize": true
+  }
+]

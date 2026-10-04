@@ -1,0 +1,31 @@
+{
+  "source_branch": "master",
+  "source_commit": "c93405de372222d141dafa010cfdf5340989ac60",
+  "package": "rew.lightgames.zensudoku",
+  "version_name": "1.0",
+  "version_code": 1,
+  "device_model": "Samsung SM-S918B",
+  "android_version": "16",
+  "device_resolution": [
+    1440,
+    3088
+  ],
+  "device_transport": "ADB wireless TLS",
+  "aab_sha256": "031a883f550ad4b7fbdf682c6ff1c8b5699cce30f26a7f0e0da63ab65653a8bd",
+  "installed_base_sha256": "89dfeb4dcecca9ed566941753e1452cddcd5a69c69a67ffaa6e532ac458ded6a",
+  "installed_base_matches_exact_aab_derived_base": true,
+  "installed_embedded_revision": "repositories {\n  system: GIT\n  local_root_path: \"$PROJECT_DIR\"\n  revision: \"c93405de372222d141dafa010cfdf5340989ac60\"\n}\n",
+  "debuggable": false,
+  "capture_status": "Complete: eight genuine app captures, six selected production screenshots",
+  "original_device_settings": {
+    "zen_mode": 0,
+    "show_touches": 0,
+    "pointer_location": 0
+  },
+  "google_play_guidance": "https://support.google.com/googleplay/android-developer/answer/9866151?hl=en-GB",
+  "device_settings_restored": {
+    "zen_mode": 0,
+    "secure_edge_enable": 1,
+    "global_edge_enable": 1
+  }
+}

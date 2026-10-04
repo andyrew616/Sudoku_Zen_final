@@ -1,0 +1,193 @@
+{
+  "release_source": "c93405de372222d141dafa010cfdf5340989ac60",
+  "screenshots": [
+    {
+      "path": "phone/production/01-menu.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 861868,
+      "sha256": "159c6a06d2cbf522ef56c8e015a53276700ed7f22ea78e5a09663a8f2aa30ad7",
+      "captured_ui_matches_raw_after_declared_crop_and_resize": true
+    },
+    {
+      "path": "phone/production/02-gameplay.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 470461,
+      "sha256": "5c886182bc865fb66bf0252f184199656fddbaf6703b77e0b95a71eccb5b55dc",
+      "captured_ui_matches_raw_after_declared_crop_and_resize": true
+    },
+    {
+      "path": "phone/production/03-hints.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 467489,
+      "sha256": "d53b9fb2f098d041ec82717450c278f9c55eea499d182b04195b97279bed5adc",
+      "captured_ui_matches_raw_after_declared_crop_and_resize": true
+    },
+    {
+      "path": "phone/production/04-notes.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 468547,
+      "sha256": "b117fd7d51f0b2ee4c2543fc9eaaa0cc5f9042df0fa57def555194c5dc74bcaf",
+      "captured_ui_matches_raw_after_declared_crop_and_resize": true
+    },
+    {
+      "path": "phone/production/05-pause-resume.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 499641,
+      "sha256": "21fdfaa9e9ef93b72235a5e5504043f9cb3198acafe0ca1d71dc8ba846357204",
+      "captured_ui_matches_raw_after_declared_crop_and_resize": true
+    },
+    {
+      "path": "phone/production/06-settings.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 770096,
+      "sha256": "48acd37a09e47e80d4db6da418e3d78bb78d2e8b46829cd394fb9de3bb3c056a",
+      "captured_ui_matches_raw_after_declared_crop_and_resize": true
+    }
+  ],
+  "feature": {
+    "path": "feature/feature-graphic-1024x500.png",
+    "dimensions": [
+      1024,
+      500
+    ],
+    "mode": "RGB",
+    "format": "PNG",
+    "bytes": 380550,
+    "sha256": "7fd1b379507c551c75fa998836dc43357678bda0d5fddc7876770bef16dd29f7"
+  },
+  "icon": {
+    "path": "icon/app-icon-512x512.png",
+    "dimensions": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "format": "PNG",
+    "bytes": 75654,
+    "sha256": "9c70dd38d6633e423a62ed3d076fb0663eb7e84c5f0eb54ec776355911a86f67",
+    "identical_to_released_source": true
+  },
+  "raw_captures": {
+    "00-home.png": "8f4343735b782b21031757e91ec953dc872bd807d460bec1a9241b2bc41ad8d0",
+    "01-menu.png": "afa0ef4129dd5a303061ca7b0f2d5ae085ea54c933aca9e0da085fc7e9618c68",
+    "02-gameplay.png": "9a615a0fe6f00ef2b9060798cf65c892abbdfeef23288a71f54d8108bb8a3137",
+    "03-hints.png": "0853b8da619006a8789ecde70c911c3e40135be350456011c396d30e57be8cf4",
+    "04-notes.png": "ae2db2b144b34504adfa439dc24e265eb6ea668a6cde82126f63358078187adc",
+    "05-pause-resume.png": "28563acb641a734e4dc7059574eebb48145a004db0387fa40b50a8127420ed5e",
+    "06-settings.png": "1c9467d38b8d53e23652039dac2f62aa9b034e70f6a20ae945b5bb46e4671196",
+    "07-resumed.png": "d319dae10fa3e78d32d68fc2a55bd86edfd084d5840d40b765a49d40c001e6e9"
+  },
+  "legacy_launcher_outputs": [
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "dimensions": [
+        48,
+        48
+      ],
+      "sha256": "f0e641cc13935db4c369e39208c68fba7038555f5232c9b3881fa986c9c40b4d"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "dimensions": [
+        48,
+        48
+      ],
+      "sha256": "ac370573424d63fd7793a8a8bd9232629da2e0d54fe0c1cc222765c612930216"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "dimensions": [
+        72,
+        72
+      ],
+      "sha256": "b8c9d9932db4c029b700b239cf292ccf460b8b1b590df894bc50e675dc7b8a48"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "dimensions": [
+        72,
+        72
+      ],
+      "sha256": "d8dab02d9e2fde2d0a063b472b3540ecd7ffa0cc3d8291226b371bf43bfd7d4d"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "dimensions": [
+        96,
+        96
+      ],
+      "sha256": "61b78cf9c5e7ce02af65e1f7f8f107027d2c3d19c8e174d26972b556eee23976"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "dimensions": [
+        96,
+        96
+      ],
+      "sha256": "bd841968d630cab3abd693c1cfa2f464bcafecf0762b8b65c9bf0b5ab0105fc9"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "dimensions": [
+        144,
+        144
+      ],
+      "sha256": "09d399714406f33922672d18db251129261c40bf80af92e8f025c65d7cbc49cb"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "dimensions": [
+        144,
+        144
+      ],
+      "sha256": "eaac1eb219892f106158518f203eaba4c38dffac3a6df5751c6aae88eee0fc59"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "dimensions": [
+        192,
+        192
+      ],
+      "sha256": "b992adbe55bfc1771aca6e4749a5f5399cd5690966d5b9cbe64b10b93b7de47d"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "dimensions": [
+        192,
+        192
+      ],
+      "sha256": "a84e0117b9f1b45e53bef388b5a0467cd76620431fd15315902fff2617b25b5e"
+    }
+  ],
+  "adaptive_sources_consistent": true
+}

@@ -1,0 +1,140 @@
+[
+  {
+    "file": "01-menu.png",
+    "headline": "Find your perfect pace",
+    "raw": "raw/01-menu.png",
+    "crop": [
+      0,
+      125,
+      1440,
+      2790
+    ],
+    "placement": [
+      98,
+      224,
+      884,
+      1636
+    ],
+    "format": "PNG",
+    "mode": "RGB",
+    "dimensions": [
+      1080,
+      1920
+    ]
+  },
+  {
+    "file": "02-gameplay.png",
+    "headline": "Relax into every puzzle",
+    "raw": "raw/02-gameplay.png",
+    "crop": [
+      0,
+      110,
+      1440,
+      2870
+    ],
+    "placement": [
+      98,
+      195,
+      884,
+      1694
+    ],
+    "format": "PNG",
+    "mode": "RGB",
+    "dimensions": [
+      1080,
+      1920
+    ]
+  },
+  {
+    "file": "03-hints.png",
+    "headline": "Hints when you need them",
+    "raw": "raw/03-hints.png",
+    "crop": [
+      0,
+      110,
+      1440,
+      2870
+    ],
+    "placement": [
+      98,
+      195,
+      884,
+      1694
+    ],
+    "format": "PNG",
+    "mode": "RGB",
+    "dimensions": [
+      1080,
+      1920
+    ]
+  },
+  {
+    "file": "04-notes.png",
+    "headline": "Space to think",
+    "raw": "raw/04-notes.png",
+    "crop": [
+      0,
+      110,
+      1440,
+      2870
+    ],
+    "placement": [
+      98,
+      195,
+      884,
+      1694
+    ],
+    "format": "PNG",
+    "mode": "RGB",
+    "dimensions": [
+      1080,
+      1920
+    ]
+  },
+  {
+    "file": "05-pause-resume.png",
+    "headline": "Pick up where you left off",
+    "raw": "raw/05-pause-resume.png",
+    "crop": [
+      0,
+      125,
+      1440,
+      2790
+    ],
+    "placement": [
+      98,
+      224,
+      884,
+      1636
+    ],
+    "format": "PNG",
+    "mode": "RGB",
+    "dimensions": [
+      1080,
+      1920
+    ]
+  },
+  {
+    "file": "06-settings.png",
+    "headline": "Make yourself comfortable",
+    "raw": "raw/06-settings.png",
+    "crop": [
+      0,
+      125,
+      1440,
+      2790
+    ],
+    "placement": [
+      98,
+      224,
+      884,
+      1636
+    ],
+    "format": "PNG",
+    "mode": "RGB",
+    "dimensions": [
+      1080,
+      1920
+    ]
+  }
+]
