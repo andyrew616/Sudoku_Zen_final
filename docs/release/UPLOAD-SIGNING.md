@@ -40,8 +40,14 @@ private key. Never run Gradle with secret values in verbose command-line flags.
 
 ## Authoritative candidate and validation
 
-Only `app/build/outputs/bundle/release/app-release.aab` is the current candidate
-path. Always clear stale generated output before freezing a new candidate. The
+The reconciliation base is documented in [RECONCILIATION.md](RECONCILIATION.md).
+There is currently **no release candidate for this source base**. All bundles
+and device evidence built from `ab6cfd73` or `7d377950` are superseded: those
+revisions omitted later mainline UI/gameplay changes. Their signatures and
+successful tests do not make them suitable for the next release.
+
+Only `app/build/outputs/bundle/release/app-release.aab` is the future candidate
+path after a separately authorized build. Always clear stale generated output before freezing a new candidate. The
 `NOT-FOR-UPLOAD` archive contains historical evidence for the old identity.
 Do not select a bundle based solely on its filename.
 
