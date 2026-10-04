@@ -41,8 +41,9 @@ private key. Never run Gradle with secret values in verbose command-line flags.
 ## Authoritative candidate and validation
 
 The reconciliation base is documented in [RECONCILIATION.md](RECONCILIATION.md).
-There is currently **no release candidate for this source base**. All bundles
-and device evidence built from `ab6cfd73` or `7d377950` are superseded: those
+The authoritative local source branch is now **master**; see
+[MASTER-RELEASE.md](MASTER-RELEASE.md) and the exact-candidate handoff it references.
+All bundles and device evidence built from `ab6cfd73` or `7d377950` are superseded: those
 revisions omitted later mainline UI/gameplay changes. Their signatures and
 successful tests do not make them suitable for the next release.
 

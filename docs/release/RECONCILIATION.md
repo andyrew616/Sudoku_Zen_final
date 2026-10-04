@@ -1,8 +1,9 @@
 # Zen Sudoku source reconciliation — 2026-10-04
 
-This is the current source handoff. It supersedes artifact-readiness claims in
-archived handoffs. No release artifact was generated from this base, and no
-existing artifact is an upload candidate for it.
+This is the historical source-reconciliation handoff. It superseded earlier
+artifact-readiness claims. Local master has since been consolidated; see
+[MASTER-RELEASE.md](MASTER-RELEASE.md) for current source and candidate authority.
+No artifact was generated during this reconciliation round.
 
 ## Repository truth and visual provenance
 
